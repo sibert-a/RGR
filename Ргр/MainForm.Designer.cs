@@ -113,7 +113,6 @@
 
             // Группа легенды
             GroupBox legendBox = new GroupBox();
-            legendBox.Text = "Легенда";
             legendBox.Location = new System.Drawing.Point(990, 10);
             legendBox.Size = new System.Drawing.Size(160, 180);
 
