@@ -249,7 +249,7 @@ namespace РГР
 
         private async Task BubbleSort()
         {
-            statusLabel.Text = "Пузырьковая сортировка...";
+            statusLabel.Text = "Пузырьковая сортировка";
 
             for (int i = 0; i < array.Length - 1; i++)
             {
@@ -280,7 +280,7 @@ namespace РГР
 
         private async Task SelectionSort()
         {
-            statusLabel.Text = "Сортировка выбором...";
+            statusLabel.Text = "Сортировка выбором";
             for (int i = 0; i < array.Length - 1; i++)
             {
                 int minIdx = i;
@@ -307,7 +307,7 @@ namespace РГР
 
         private async Task InsertionSort()
         {
-            statusLabel.Text = "Сортировка вставками...";
+            statusLabel.Text = "Сортировка вставками";
             for (int i = 1; i < array.Length; i++)
             {
                 int key = array[i];
