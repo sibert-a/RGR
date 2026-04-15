@@ -281,7 +281,6 @@ namespace РГР
         private async Task SelectionSort()
         {
             statusLabel.Text = "Сортировка выбором...";
-
             for (int i = 0; i < array.Length - 1; i++)
             {
                 int minIdx = i;
@@ -309,7 +308,6 @@ namespace РГР
         private async Task InsertionSort()
         {
             statusLabel.Text = "Сортировка вставками...";
-
             for (int i = 1; i < array.Length; i++)
             {
                 int key = array[i];
@@ -455,7 +453,7 @@ namespace РГР
 
         private async Task TreeSort()
         {
-            statusLabel.Text = "Древесная сортировка (построение дерева)...";
+            statusLabel.Text = "Древесная сортировка (построение дерева)";
 
             TreeNode root = null;
 
@@ -471,7 +469,7 @@ namespace РГР
                 await Delay();
             }
 
-            statusLabel.Text = "Древесная сортировка (обход дерева)...";
+            statusLabel.Text = "Древесная сортировка (обход дерева)";
 
             List<int> sortedList = new List<int>();
             await InorderTraversal(root, sortedList);
