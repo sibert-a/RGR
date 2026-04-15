@@ -16,6 +16,7 @@ namespace РГР
         private TrackBar speedTrackBar;
         private NumericUpDown sizeNumeric;
         private Label statusLabel;
+        private bool[] isSorted;
 
         private int[] array;
         private int arraySize = 30;
@@ -61,13 +62,17 @@ namespace РГР
             arraySize = (int)sizeNumeric.Value;
             Random rand = new Random();
             array = new int[arraySize];
+            isSorted = new bool[arraySize];
+
             for (int i = 0; i < arraySize; i++)
             {
                 array[i] = rand.Next(10, maxValue + 10);
+                isSorted[i] = false;
             }
+
             externalElement1 = null;
             externalElement2 = null;
-            sortedCount = 0;
+
             canvas.Invalidate();
         }
 
@@ -91,7 +96,7 @@ namespace РГР
                 {
                     barColor = Color.Transparent;
                 }
-                else if (i < sortedCount)
+                else if (isSorted[i])
                 {
                     barColor = sortedColor;
                 }
@@ -202,7 +207,11 @@ namespace РГР
 
         private async Task Delay()
         {
-            await Task.Delay(speedTrackBar.Value);
+            int delay = speedTrackBar.InvokeRequired
+                ? (int)speedTrackBar.Invoke(new Func<int>(() => speedTrackBar.Value))
+                : speedTrackBar.Value;
+
+            await Task.Delay(delay);
         }
 
         private async Task ShowComparison(int index1, int index2, bool showExternally = true)
@@ -241,53 +250,66 @@ namespace РГР
         private async Task BubbleSort()
         {
             statusLabel.Text = "Пузырьковая сортировка...";
+
             for (int i = 0; i < array.Length - 1; i++)
             {
                 bool swapped = false;
+
                 for (int j = 0; j < array.Length - 1 - i; j++)
                 {
                     await ShowComparison(j, j + 1);
+
                     if (array[j] > array[j + 1])
                     {
                         await Swap(j, j + 1);
                         swapped = true;
                     }
+
                     ClearExternal();
                 }
-                sortedCount = array.Length - 1 - i;
+
+                isSorted[array.Length - 1 - i] = true;
                 canvas.Invalidate();
+
                 if (!swapped) break;
             }
-            sortedCount = array.Length;
+
+            for (int i = 0; i < array.Length; i++)
+                isSorted[i] = true;
         }
 
         private async Task SelectionSort()
         {
             statusLabel.Text = "Сортировка выбором...";
+
             for (int i = 0; i < array.Length - 1; i++)
             {
                 int minIdx = i;
+
                 for (int j = i + 1; j < array.Length; j++)
                 {
                     await ShowComparison(minIdx, j);
+
                     if (array[j] < array[minIdx])
-                    {
                         minIdx = j;
-                    }
+
                     ClearExternal();
                 }
+
                 if (minIdx != i)
-                {
                     await Swap(i, minIdx);
-                }
-                sortedCount = i + 1;
+
+                isSorted[i] = true;
                 canvas.Invalidate();
             }
+
+            isSorted[array.Length - 1] = true;
         }
 
         private async Task InsertionSort()
         {
             statusLabel.Text = "Сортировка вставками...";
+
             for (int i = 1; i < array.Length; i++)
             {
                 int key = array[i];
@@ -306,12 +328,18 @@ namespace РГР
                     await Delay();
                     j--;
                 }
+
                 array[j + 1] = key;
+
                 ClearExternal();
-                sortedCount = i + 1;
+                isSorted[i] = true;
+
                 canvas.Invalidate();
                 await Delay();
             }
+
+            for (int i = 0; i < array.Length; i++)
+                isSorted[i] = true;
         }
 
         private async Task MergeSort(int left, int right)
