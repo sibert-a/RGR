@@ -9,20 +9,18 @@ namespace РГР
 {
     public partial class MainForm : Form
     {
-        private Panel canvas;
-        private ComboBox algorithmCombo;
-        private Button startButton;
-        private Button resetButton;
-        private TrackBar speedTrackBar;
-        private NumericUpDown sizeNumeric;
-        private Label statusLabel;
         private bool[] isSorted;
 
         private int[] array;
+        private int[] originalArray;              // копия исходного массива для сброса
         private int arraySize = 30;
         private int maxValue = 100;
         private bool isSorting = false;
+        private bool isPaused = false;
         private CancellationTokenSource cancellationTokenSource;
+
+        // Для паузы используется простой флаг и цикл ожидания в Delay()
+        private readonly object pauseLock = new object();
 
         // Цвета для отображения
         private Color defaultColor = Color.SteelBlue;
@@ -42,18 +40,33 @@ namespace РГР
         {
             InitializeComponent();
             this.Resize += MainForm_Resize;
+            // Включаем двойную буферизацию для устранения мерцания
+            typeof(Panel).GetProperty("DoubleBuffered",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                ?.SetValue(canvas, true, null);
+            typeof(Panel).GetProperty("DoubleBuffered",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                ?.SetValue(externalPanel, true, null);
+
             GenerateArray();
+            originalArray = array.ToArray();
         }
 
         private void MainForm_Resize(object sender, EventArgs e)
         {
-            // Адаптация размеров при изменении окна
-            if (canvas != null)
+            if (canvas != null && externalPanel != null && controlPanel != null)
             {
-                canvas.Width = this.ClientSize.Width - 40;
-                canvas.Height = 400;
-                controlPanel.Top = canvas.Bottom + 10;
-                controlPanel.Width = this.ClientSize.Width - 40;
+                int margin = 10;
+                externalPanel.Left = margin;
+                externalPanel.Top = margin;
+                externalPanel.Height = this.ClientSize.Height - controlPanel.Height - 3 * margin;
+                canvas.Left = externalPanel.Right + margin;
+                canvas.Top = margin;
+                canvas.Width = this.ClientSize.Width - canvas.Left - margin;
+                canvas.Height = externalPanel.Height;
+                controlPanel.Top = canvas.Bottom + margin;
+                controlPanel.Left = margin;
+                controlPanel.Width = this.ClientSize.Width - 2 * margin;
             }
         }
 
@@ -72,8 +85,12 @@ namespace РГР
 
             externalElement1 = null;
             externalElement2 = null;
+            externalElementIndex1 = null;
+            externalElementIndex2 = null;
+            sortedCount = 0;
 
             canvas.Invalidate();
+            externalPanel.Invalidate();
         }
 
         private void Canvas_Paint(object sender, PaintEventArgs e)
@@ -86,24 +103,15 @@ namespace РГР
 
             for (int i = 0; i < array.Length; i++)
             {
+                // Если элемент временно удалён для отображения снаружи – не рисуем его
+                if (externalElementIndex1 == i || externalElementIndex2 == i)
+                    continue;
+
                 int barHeight = (int)((double)array[i] / maxValue * (canvas.Height - 50));
                 int x = i * (barWidth + 2) + 2;
                 int y = canvas.Height - barHeight - 20;
 
-                Color barColor = defaultColor;
-
-                if (externalElementIndex1 == i || externalElementIndex2 == i)
-                {
-                    barColor = Color.Transparent;
-                }
-                else if (isSorted[i])
-                {
-                    barColor = sortedColor;
-                }
-                else
-                {
-                    barColor = defaultColor;
-                }
+                Color barColor = isSorted[i] ? sortedColor : defaultColor;
 
                 using (Brush brush = new SolidBrush(barColor))
                 {
@@ -120,69 +128,76 @@ namespace РГР
                         x + barWidth / 2 - textSize.Width / 2, y - 15);
                 }
             }
+        }
+
+        private void ExternalPanel_Paint(object sender, PaintEventArgs e)
+        {
+            Graphics g = e.Graphics;
+            // Рисуем фон
+            g.Clear(externalPanel.BackColor);
 
             if (externalElement1.HasValue)
-            {
-                DrawExternalElement(g, externalElement1.Value, 50, 20, comparingColor, "Элемент 1");
-            }
+                DrawExternalElement(g, externalElement1.Value, 10, 20, comparingColor, "Элемент 1");
             if (externalElement2.HasValue)
-            {
-                DrawExternalElement(g, externalElement2.Value, 50, 70, swappingColor, "Элемент 2");
-            }
+                DrawExternalElement(g, externalElement2.Value, 10, 70, swappingColor, "Элемент 2");
         }
 
         private void DrawExternalElement(Graphics g, int value, int x, int y, Color color, string label)
         {
             int barWidth = 40;
-            int barHeight = (int)((double)value / maxValue * 80);
+            int maxBarHeight = 80;
+            int barHeight = (int)((double)value / maxValue * maxBarHeight);
+            if (barHeight < 1) barHeight = 1;
 
             using (Brush brush = new SolidBrush(color))
             {
-                g.FillRectangle(brush, x, y + 50 - barHeight, barWidth, barHeight);
+                g.FillRectangle(brush, x, y + maxBarHeight - barHeight, barWidth, barHeight);
             }
-            g.DrawRectangle(Pens.Black, x, y + 50 - barHeight, barWidth, barHeight);
-            g.DrawString(value.ToString(), new Font("Arial", 10, FontStyle.Bold), Brushes.Black,
-                x + barWidth / 2 - 8, y + 50 - barHeight - 15);
-            g.DrawString(label, new Font("Arial", 8), Brushes.Black, x, y);
+            g.DrawRectangle(Pens.Black, x, y + maxBarHeight - barHeight, barWidth, barHeight);
+            using (Font font = new Font("Arial", 10, FontStyle.Bold))
+            {
+                g.DrawString(value.ToString(), font, Brushes.Black,
+                    x + barWidth / 2 - 8, y + maxBarHeight - barHeight - 15);
+            }
+            using (Font font = new Font("Arial", 8))
+            {
+                g.DrawString(label, font, Brushes.Black, x, y);
+            }
         }
 
         private async void StartButton_Click(object sender, EventArgs e)
         {
             if (isSorting) return;
 
+            // Сохраняем исходное состояние массива
+            originalArray = array.ToArray();
             isSorting = true;
-            startButton.Enabled = false;
-            resetButton.Enabled = false;
-            algorithmCombo.Enabled = false;
-            sizeNumeric.Enabled = false;
-            sortedCount = 0;
-            externalElement1 = null;
-            externalElement2 = null;
+            isPaused = false;
+            SetControlsState(true, false);
 
             cancellationTokenSource = new CancellationTokenSource();
+            var token = cancellationTokenSource.Token;
+
+            // Сброс внешних элементов
+            externalElement1 = null;
+            externalElement2 = null;
+            externalElementIndex1 = null;
+            externalElementIndex2 = null;
+            sortedCount = 0;
+            for (int i = 0; i < array.Length; i++) isSorted[i] = false;
+            canvas.Invalidate();
+            externalPanel.Invalidate();
 
             try
             {
                 switch (algorithmCombo.SelectedIndex)
                 {
-                    case 0:
-                        await BubbleSort();
-                        break;
-                    case 1:
-                        await SelectionSort();
-                        break;
-                    case 2:
-                        await InsertionSort();
-                        break;
-                    case 3:
-                        await MergeSort(0, array.Length - 1);
-                        break;
-                    case 4:
-                        await QuickSort(0, array.Length - 1);
-                        break;
-                    case 5:
-                        await TreeSort();
-                        break;
+                    case 0: await BubbleSort(token); break;
+                    case 1: await SelectionSort(token); break;
+                    case 2: await InsertionSort(token); break;
+                    case 3: await MergeSort(0, array.Length - 1, token); break;
+                    case 4: await QuickSort(0, array.Length - 1, token); break;
+                    case 5: await TreeSort(token); break;
                 }
                 sortedCount = array.Length;
                 canvas.Invalidate();
@@ -195,36 +210,121 @@ namespace РГР
             finally
             {
                 isSorting = false;
-                startButton.Enabled = true;
-                resetButton.Enabled = true;
-                algorithmCombo.Enabled = true;
-                sizeNumeric.Enabled = true;
+                isPaused = false;
+                SetControlsState(false, false);
                 externalElement1 = null;
                 externalElement2 = null;
                 canvas.Invalidate();
+                externalPanel.Invalidate();
             }
         }
 
-        private async Task Delay()
+        private void PauseButton_Click(object sender, EventArgs e)
         {
-            int delay = speedTrackBar.InvokeRequired
-                ? (int)speedTrackBar.Invoke(new Func<int>(() => speedTrackBar.Value))
-                : speedTrackBar.Value;
+            if (!isSorting) return;
 
-            await Task.Delay(delay);
+            isPaused = !isPaused;
+            pauseButton.Text = isPaused ? "Продолжить" : "Пауза";
+            statusLabel.Text = isPaused ? "Пауза" : "Сортировка...";
         }
 
-        private async Task ShowComparison(int index1, int index2, bool showExternally = true)
+        private void ResetButton_Click(object sender, EventArgs e)
         {
-            if (showExternally && index2 >= 0)
+            // Если идёт сортировка – отменяем её
+            if (isSorting)
             {
-                externalElementIndex1 = index1;
-                externalElementIndex2 = index2;
-                externalElement1 = array[index1];
-                externalElement2 = array[index2];
+                cancellationTokenSource?.Cancel();
+                isSorting = false;
+                isPaused = false;
             }
+
+            // Восстанавливаем исходный массив, если он есть
+            if (originalArray != null && originalArray.Length == array.Length)
+            {
+                Array.Copy(originalArray, array, array.Length);
+                for (int i = 0; i < array.Length; i++) isSorted[i] = false;
+                sortedCount = 0;
+                externalElement1 = externalElement2 = null;
+                externalElementIndex1 = externalElementIndex2 = null;
+                canvas.Invalidate();
+                externalPanel.Invalidate();
+                statusLabel.Text = "Сброшено к исходному массиву";
+            }
+            else
+            {
+                // Если по какой-то причине оригинал отсутствует – генерируем новый
+                GenerateArray();
+                originalArray = array.ToArray();
+                statusLabel.Text = "Новый массив сгенерирован";
+            }
+
+            SetControlsState(false, false);
+        }
+
+        private void NewArrayButton_Click(object sender, EventArgs e)
+        {
+            if (isSorting) return;
+
+            GenerateArray();
+            originalArray = array.ToArray();
+            statusLabel.Text = "Новый массив сгенерирован";
+        }
+
+        private void SizeNumeric_ValueChanged(object sender, EventArgs e)
+        {
+            if (!isSorting)
+            {
+                GenerateArray();
+                originalArray = array.ToArray();
+            }
+        }
+
+        private void SetControlsState(bool sorting, bool paused)
+        {
+            algorithmCombo.Enabled = !sorting;
+            sizeNumeric.Enabled = !sorting;
+            newArrayButton.Enabled = !sorting;
+            startButton.Enabled = !sorting;
+            resetButton.Enabled = true;          // всегда доступна
+            pauseButton.Enabled = sorting;       // только во время сортировки
+            speedTrackBar.Enabled = true;
+
+            pauseButton.Text = (sorting && paused) ? "Продолжить" : "Пауза";
+        }
+
+        private async Task Delay(CancellationToken token)
+        {
+            int delayMs = speedTrackBar.Value; // значение в мс (1..100)
+            try
+            {
+                await Task.Delay(delayMs, token);
+            }
+            catch (TaskCanceledException)
+            {
+                throw;
+            }
+
+            // Ожидание снятия паузы
+            while (isPaused && !token.IsCancellationRequested)
+            {
+                await Task.Delay(50, token);
+            }
+            token.ThrowIfCancellationRequested();
+        }
+
+        private async Task ShowComparison(int index1, int index2, CancellationToken token)
+        {
+            externalElementIndex1 = index1;
+            externalElementIndex2 = index2;
+            externalElement1 = array[index1];
+            if (index2 >= 0)
+                externalElement2 = array[index2];
+            else
+                externalElement2 = null;
+
             canvas.Invalidate();
-            await Delay();
+            externalPanel.Invalidate();
+            await Delay(token);
         }
 
         private void ClearExternal()
@@ -234,142 +334,137 @@ namespace РГР
             externalElementIndex1 = null;
             externalElementIndex2 = null;
             canvas.Invalidate();
+            externalPanel.Invalidate();
         }
 
-        private async Task Swap(int i, int j)
+        private async Task Swap(int i, int j, CancellationToken token)
         {
-            await ShowComparison(i, j);
+            await ShowComparison(i, j, token);
             int temp = array[i];
             array[i] = array[j];
             array[j] = temp;
             ClearExternal();
             canvas.Invalidate();
-            await Delay();
+            await Delay(token);
         }
 
-        private async Task BubbleSort()
+        // -------------------- Алгоритмы сортировки --------------------
+        private async Task BubbleSort(CancellationToken token)
         {
             statusLabel.Text = "Пузырьковая сортировка";
 
             for (int i = 0; i < array.Length - 1; i++)
             {
                 bool swapped = false;
-
                 for (int j = 0; j < array.Length - 1 - i; j++)
                 {
-                    await ShowComparison(j, j + 1);
-
+                    token.ThrowIfCancellationRequested();
+                    await ShowComparison(j, j + 1, token);
                     if (array[j] > array[j + 1])
                     {
-                        await Swap(j, j + 1);
+                        await Swap(j, j + 1, token);
                         swapped = true;
                     }
-
                     ClearExternal();
                 }
-
                 isSorted[array.Length - 1 - i] = true;
                 canvas.Invalidate();
-
                 if (!swapped) break;
             }
-
-            for (int i = 0; i < array.Length; i++)
-                isSorted[i] = true;
+            for (int i = 0; i < array.Length; i++) isSorted[i] = true;
         }
 
-        private async Task SelectionSort()
+        private async Task SelectionSort(CancellationToken token)
         {
             statusLabel.Text = "Сортировка выбором";
             for (int i = 0; i < array.Length - 1; i++)
             {
+                token.ThrowIfCancellationRequested();
                 int minIdx = i;
-
                 for (int j = i + 1; j < array.Length; j++)
                 {
-                    await ShowComparison(minIdx, j);
-
+                    await ShowComparison(minIdx, j, token);
                     if (array[j] < array[minIdx])
                         minIdx = j;
-
                     ClearExternal();
                 }
-
                 if (minIdx != i)
-                    await Swap(i, minIdx);
-
+                    await Swap(i, minIdx, token);
                 isSorted[i] = true;
                 canvas.Invalidate();
             }
-
             isSorted[array.Length - 1] = true;
         }
 
-        private async Task InsertionSort()
+        private async Task InsertionSort(CancellationToken token)
         {
             statusLabel.Text = "Сортировка вставками";
             for (int i = 1; i < array.Length; i++)
             {
+                token.ThrowIfCancellationRequested();
                 int key = array[i];
                 int j = i - 1;
 
                 externalElement1 = key;
                 externalElementIndex1 = i;
+                externalElement2 = null;
+                externalElementIndex2 = null;
                 canvas.Invalidate();
-                await Delay();
+                externalPanel.Invalidate();
+                await Delay(token);
 
                 while (j >= 0 && array[j] > key)
                 {
-                    await ShowComparison(j, -1, false);
+                    token.ThrowIfCancellationRequested();
+                    // показываем сравнение с элементом j
+                    externalElementIndex2 = j;
+                    externalElement2 = array[j];
+                    canvas.Invalidate();
+                    externalPanel.Invalidate();
+                    await Delay(token);
+
                     array[j + 1] = array[j];
                     canvas.Invalidate();
-                    await Delay();
+                    await Delay(token);
                     j--;
                 }
-
                 array[j + 1] = key;
-
                 ClearExternal();
                 isSorted[i] = true;
-
                 canvas.Invalidate();
-                await Delay();
+                await Delay(token);
             }
-
-            for (int i = 0; i < array.Length; i++)
-                isSorted[i] = true;
+            for (int i = 0; i < array.Length; i++) isSorted[i] = true;
         }
 
-        private async Task MergeSort(int left, int right)
+        private async Task MergeSort(int left, int right, CancellationToken token)
         {
             if (left < right)
             {
                 int mid = (left + right) / 2;
-                await MergeSort(left, mid);
-                await MergeSort(mid + 1, right);
-                await Merge(left, mid, right);
+                await MergeSort(left, mid, token);
+                await MergeSort(mid + 1, right, token);
+                await Merge(left, mid, right, token);
             }
         }
 
-        private async Task Merge(int left, int mid, int right)
+        private async Task Merge(int left, int mid, int right, CancellationToken token)
         {
             int n1 = mid - left + 1;
             int n2 = right - mid;
-
             int[] L = new int[n1];
             int[] R = new int[n2];
-
             for (int i = 0; i < n1; i++) L[i] = array[left + i];
             for (int j = 0; j < n2; j++) R[j] = array[mid + 1 + j];
 
             int iIdx = 0, jIdx = 0, k = left;
-
             while (iIdx < n1 && jIdx < n2)
             {
+                token.ThrowIfCancellationRequested();
                 externalElement1 = L[iIdx];
                 externalElement2 = R[jIdx];
-                canvas.Invalidate();
-                await Delay();
+                externalPanel.Invalidate();
+                await Delay(token);
 
                 if (L[iIdx] <= R[jIdx])
                 {
@@ -382,40 +477,37 @@ namespace РГР
                     jIdx++;
                 }
                 canvas.Invalidate();
-                await Delay();
+                await Delay(token);
                 k++;
             }
-
             while (iIdx < n1)
             {
+                token.ThrowIfCancellationRequested();
                 array[k] = L[iIdx];
-                iIdx++;
-                k++;
+                iIdx++; k++;
                 canvas.Invalidate();
-                await Delay();
+                await Delay(token);
             }
-
             while (jIdx < n2)
             {
+                token.ThrowIfCancellationRequested();
                 array[k] = R[jIdx];
-                jIdx++;
-                k++;
+                jIdx++; k++;
                 canvas.Invalidate();
-                await Delay();
+                await Delay(token);
             }
-
             ClearExternal();
             sortedCount = right + 1;
             canvas.Invalidate();
         }
 
-        private async Task QuickSort(int low, int high)
+        private async Task QuickSort(int low, int high, CancellationToken token)
         {
             if (low < high)
             {
-                int pi = await Partition(low, high);
-                await QuickSort(low, pi - 1);
-                await QuickSort(pi + 1, high);
+                int pi = await Partition(low, high, token);
+                await QuickSort(low, pi - 1, token);
+                await QuickSort(pi + 1, high, token);
             }
             else if (low == high)
             {
@@ -424,86 +516,82 @@ namespace РГР
             }
         }
 
-        private async Task<int> Partition(int low, int high)
+        private async Task<int> Partition(int low, int high, CancellationToken token)
         {
             int pivot = array[high];
             int i = low - 1;
 
             externalElement1 = pivot;
             externalElementIndex1 = high;
-            canvas.Invalidate();
-            await Delay();
+            externalPanel.Invalidate();
+            await Delay(token);
 
             for (int j = low; j < high; j++)
             {
-                await ShowComparison(j, high);
+                token.ThrowIfCancellationRequested();
+                await ShowComparison(j, high, token);
                 if (array[j] <= pivot)
                 {
                     i++;
-                    await Swap(i, j);
+                    await Swap(i, j, token);
                 }
                 ClearExternal();
             }
-            await Swap(i + 1, high);
+            await Swap(i + 1, high, token);
             ClearExternal();
             sortedCount = i + 2;
             canvas.Invalidate();
             return i + 1;
         }
 
-        private async Task TreeSort()
+        private async Task TreeSort(CancellationToken token)
         {
             statusLabel.Text = "Древесная сортировка (построение дерева)";
-
             TreeNode root = null;
-
             for (int i = 0; i < array.Length; i++)
             {
+                token.ThrowIfCancellationRequested();
                 externalElement1 = array[i];
                 externalElementIndex1 = i;
-                canvas.Invalidate();
-                await Delay();
-
+                externalPanel.Invalidate();
+                await Delay(token);
                 root = InsertIntoTree(root, array[i]);
                 ClearExternal();
-                await Delay();
+                await Delay(token);
             }
 
             statusLabel.Text = "Древесная сортировка (обход дерева)";
-
             List<int> sortedList = new List<int>();
-            await InorderTraversal(root, sortedList);
-
+            await InorderTraversal(root, sortedList, token);
             for (int i = 0; i < sortedList.Count; i++)
             {
+                token.ThrowIfCancellationRequested();
                 array[i] = sortedList[i];
                 sortedCount = i + 1;
                 canvas.Invalidate();
-                await Delay();
+                await Delay(token);
             }
         }
 
         private TreeNode InsertIntoTree(TreeNode root, int value)
         {
-            if (root == null)
-                return new TreeNode(value);
-
+            if (root == null) return new TreeNode(value);
             if (value < root.Value)
                 root.Left = InsertIntoTree(root.Left, value);
             else
                 root.Right = InsertIntoTree(root.Right, value);
-
             return root;
         }
 
-        private async Task InorderTraversal(TreeNode node, List<int> result)
+        private async Task InorderTraversal(TreeNode node, List<int> result, CancellationToken token)
         {
             if (node != null)
             {
-                await InorderTraversal(node.Left, result);
+                await InorderTraversal(node.Left, result, token);
+                token.ThrowIfCancellationRequested();
                 result.Add(node.Value);
-                await Delay();
-                await InorderTraversal(node.Right, result);
+                await Delay(token);
+                await InorderTraversal(node.Right, result, token);
             }
         }
 
@@ -512,16 +600,7 @@ namespace РГР
             public int Value { get; set; }
             public TreeNode Left { get; set; }
             public TreeNode Right { get; set; }
-
-            public TreeNode(int value)
-            {
-                Value = value;
-                Left = null;
-                Right = null;
-            }
+            public TreeNode(int value) { Value = value; }
         }
-
-        // Панель управления (добавляем как поле класса)
-        private Panel controlPanel;
     }
 }

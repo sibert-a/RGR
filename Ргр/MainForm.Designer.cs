@@ -23,10 +23,18 @@
             this.StartPosition = FormStartPosition.CenterScreen;
             this.BackColor = System.Drawing.SystemColors.Control;
 
-            // Canvas панель
+            // Панель для внешних элементов (слева)
+            this.externalPanel = new Panel();
+            this.externalPanel.Location = new System.Drawing.Point(10, 10);
+            this.externalPanel.Size = new System.Drawing.Size(120, 400);
+            this.externalPanel.BackColor = System.Drawing.Color.WhiteSmoke;
+            this.externalPanel.BorderStyle = BorderStyle.FixedSingle;
+            this.externalPanel.Paint += new PaintEventHandler(this.ExternalPanel_Paint);
+
+            // Canvas панель (справа от externalPanel)
             this.canvas = new Panel();
-            this.canvas.Location = new System.Drawing.Point(10, 10);
-            this.canvas.Size = new System.Drawing.Size(1160, 400);
+            this.canvas.Location = new System.Drawing.Point(140, 10);
+            this.canvas.Size = new System.Drawing.Size(1030, 400);
             this.canvas.BackColor = System.Drawing.Color.White;
             this.canvas.BorderStyle = BorderStyle.FixedSingle;
             this.canvas.Paint += new PaintEventHandler(this.Canvas_Paint);
@@ -84,7 +92,7 @@
             this.speedTrackBar.Location = new System.Drawing.Point(535, 5);
             this.speedTrackBar.Size = new System.Drawing.Size(200, 40);
             this.speedTrackBar.Minimum = 1;
-            this.speedTrackBar.Maximum = 100;
+            this.speedTrackBar.Maximum = 500;   // Максимальная задержка 500 мс
             this.speedTrackBar.Value = 20;
             this.speedTrackBar.TickFrequency = 10;
 
@@ -104,6 +112,22 @@
             this.resetButton.BackColor = System.Drawing.Color.LightCoral;
             this.resetButton.Click += new EventHandler(this.ResetButton_Click);
 
+            // Кнопка Пауза
+            this.pauseButton = new Button();
+            this.pauseButton.Text = "Пауза";
+            this.pauseButton.Location = new System.Drawing.Point(760, 55);
+            this.pauseButton.Size = new System.Drawing.Size(100, 35);
+            this.pauseButton.BackColor = System.Drawing.Color.LightYellow;
+            this.pauseButton.Click += new EventHandler(this.PauseButton_Click);
+
+            // Кнопка Новый массив
+            this.newArrayButton = new Button();
+            this.newArrayButton.Text = "Новый массив";
+            this.newArrayButton.Location = new System.Drawing.Point(870, 55);
+            this.newArrayButton.Size = new System.Drawing.Size(100, 35);
+            this.newArrayButton.BackColor = System.Drawing.Color.LightBlue;
+            this.newArrayButton.Click += new EventHandler(this.NewArrayButton_Click);
+
             // Статусная метка
             this.statusLabel = new Label();
             this.statusLabel.Text = "Готов";
@@ -115,8 +139,8 @@
             GroupBox legendBox = new GroupBox();
             legendBox.Location = new System.Drawing.Point(990, 10);
             legendBox.Size = new System.Drawing.Size(160, 180);
+            legendBox.Text = "Легенда";
 
-            // Добавление элементов легенды
             AddLegendItem(legendBox, System.Drawing.Color.SteelBlue, "Обычный элемент", 0);
             AddLegendItem(legendBox, System.Drawing.Color.Orange, "Сравниваемый", 1);
             AddLegendItem(legendBox, System.Drawing.Color.Red, "Перемещаемый", 2);
@@ -127,14 +151,14 @@
             this.controlPanel.Controls.AddRange(new System.Windows.Forms.Control[] {
                 algoLabel, this.algorithmCombo, sizeLabel, this.sizeNumeric,
                 speedLabel, this.speedTrackBar, this.startButton, this.resetButton,
-                this.statusLabel, legendBox
+                this.pauseButton, this.newArrayButton, this.statusLabel, legendBox
             });
 
             // Добавление панелей на форму
+            this.Controls.Add(this.externalPanel);
             this.Controls.Add(this.canvas);
             this.Controls.Add(this.controlPanel);
 
-            // Настройка компонентов
             this.components = new System.ComponentModel.Container();
         }
 
@@ -156,15 +180,17 @@
             box.Controls.Add(label);
         }
 
-        // Обработчики событий
-        private void SizeNumeric_ValueChanged(object sender, EventArgs e)
-        {
-            if (!isSorting) GenerateArray();
-        }
-
-        private void ResetButton_Click(object sender, EventArgs e)
-        {
-            if (!isSorting) GenerateArray();
-        }
+        // Объявления полей (добавлены externalPanel, pauseButton, newArrayButton)
+        private Panel canvas;
+        private Panel externalPanel;
+        private Panel controlPanel;
+        private ComboBox algorithmCombo;
+        private Button startButton;
+        private Button resetButton;
+        private Button pauseButton;
+        private Button newArrayButton;
+        private TrackBar speedTrackBar;
+        private NumericUpDown sizeNumeric;
+        private Label statusLabel;
     }
 }
