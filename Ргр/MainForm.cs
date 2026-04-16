@@ -15,6 +15,7 @@ namespace РГР
         private int[] originalArray;              // копия исходного массива для сброса
         private int arraySize = 30;
         private int maxValue = 100;
+        private const int externalElementWidth = 40;
         private bool isSorting = false;
         private bool isPaused = false;
         private CancellationTokenSource cancellationTokenSource;
@@ -79,7 +80,7 @@ namespace РГР
 
             for (int i = 0; i < arraySize; i++)
             {
-                array[i] = rand.Next(10, maxValue + 10);
+                array[i] = rand.Next(10, maxValue);
                 isSorted[i] = false;
             }
 
@@ -133,35 +134,80 @@ namespace РГР
         private void ExternalPanel_Paint(object sender, PaintEventArgs e)
         {
             Graphics g = e.Graphics;
-            // Рисуем фон
             g.Clear(externalPanel.BackColor);
 
-            if (externalElement1.HasValue)
-                DrawExternalElement(g, externalElement1.Value, 10, 20, comparingColor, "Элемент 1");
-            if (externalElement2.HasValue)
-                DrawExternalElement(g, externalElement2.Value, 10, 70, swappingColor, "Элемент 2");
+            int panelWidth = externalPanel.Width; // Объявляем переменную здесь
+
+            if (externalElement1.HasValue && externalElement2.HasValue)
+            {
+                // Рисуем оба элемента параллельно
+                int elementWidth = Math.Min(60, panelWidth / 3); // Адаптивная ширина
+                int spacing = Math.Min(20, panelWidth / 10); // Адаптивный отступ
+
+                // Вычисляем позиции так, чтобы элементы были по центру
+                int totalWidth = elementWidth * 2 + spacing;
+                int startX = Math.Max(0, (panelWidth - totalWidth) / 2);
+
+                // Проверяем, чтобы элементы не выходили за границы
+                if (startX + totalWidth > panelWidth)
+                {
+                    startX = 10; // Отступ от левого края
+                    elementWidth = (panelWidth - 30) / 2; // Подгоняем ширину
+                }
+
+                // Рисуем первый элемент
+                DrawExternalElement(g, externalElement1.Value, startX, 20, comparingColor, "Эл. 1");
+                // Рисуем второй элемент
+                DrawExternalElement(g, externalElement2.Value, startX + elementWidth + spacing, 20, swappingColor, "Эл.2");
+            }
+            else if (externalElement1.HasValue)
+            {
+                // Если только один элемент
+                int elementWidth = Math.Min(60, panelWidth / 2);
+                int startX = Math.Max(0, (externalPanel.Width - elementWidth) / 2);
+                DrawExternalElement(g, externalElement1.Value, startX, 20, comparingColor, "Элемент");
+            }
         }
 
         private void DrawExternalElement(Graphics g, int value, int x, int y, Color color, string label)
         {
-            int barWidth = 40;
-            int maxBarHeight = 80;
+            // Используем такую же высоту, как в основном массиве
+            int maxBarHeight = canvas.Height - 50;
             int barHeight = (int)((double)value / maxValue * maxBarHeight);
             if (barHeight < 1) barHeight = 1;
 
+            int barWidth = Math.Min(40, externalPanel.Width / 3); // Адаптивная ширина
+
+            // Проверяем, чтобы элемент не выходил за правую границу
+            if (x + barWidth > externalPanel.Width)
+            {
+                x = externalPanel.Width - barWidth - 5;
+            }
+
+            // Рисуем столбец
             using (Brush brush = new SolidBrush(color))
             {
                 g.FillRectangle(brush, x, y + maxBarHeight - barHeight, barWidth, barHeight);
             }
             g.DrawRectangle(Pens.Black, x, y + maxBarHeight - barHeight, barWidth, barHeight);
+
+            // Рисуем значение над столбцом
             using (Font font = new Font("Arial", 10, FontStyle.Bold))
             {
-                g.DrawString(value.ToString(), font, Brushes.Black,
-                    x + barWidth / 2 - 8, y + maxBarHeight - barHeight - 15);
+                string valueText = value.ToString();
+                SizeF textSize = g.MeasureString(valueText, font);
+                float textX = x + barWidth / 2 - textSize.Width / 2;
+                g.DrawString(valueText, font, Brushes.Black,
+                    textX, y + maxBarHeight - barHeight - 15);
             }
+
+            // Рисуем подпись под столбцом
             using (Font font = new Font("Arial", 8))
             {
-                g.DrawString(label, font, Brushes.Black, x, y);
+                SizeF textSize = g.MeasureString(label, font);
+                float textX = x + barWidth / 2 - textSize.Width / 2;
+                g.DrawString(label, font, Brushes.Black,
+                    textX, y + maxBarHeight + 5);
             }
         }
 
