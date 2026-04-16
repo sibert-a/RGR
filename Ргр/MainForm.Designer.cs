@@ -48,13 +48,13 @@
             // Метка "Алгоритм"
             Label algoLabel = new Label();
             algoLabel.Text = "Алгоритм:";
-            algoLabel.Location = new System.Drawing.Point(10, 15);
-            algoLabel.Size = new System.Drawing.Size(70, 25);
+            algoLabel.Location = new System.Drawing.Point(7, 15);
+            algoLabel.Size = new System.Drawing.Size(80, 30);
 
             // ComboBox алгоритмов
             this.algorithmCombo = new ComboBox();
             this.algorithmCombo.Location = new System.Drawing.Point(90, 12);
-            this.algorithmCombo.Size = new System.Drawing.Size(180, 25);
+            this.algorithmCombo.Size = new System.Drawing.Size(250, 25);
             this.algorithmCombo.DropDownStyle = ComboBoxStyle.DropDownList;
             this.algorithmCombo.Items.AddRange(new object[] {
                 "Пузырьковая (Bubble Sort)",
@@ -65,16 +65,23 @@
                 "Древесная (Tree Sort)"
             });
             this.algorithmCombo.SelectedIndex = 0;
+            
+            //Настройка массива
+            Label sizeLabel1 = new Label();
+            sizeLabel1.Text = "НАСТРОЙКА МАССИВА:";
+            sizeLabel1.Location = new System.Drawing.Point(10, 60);
+            sizeLabel1.Size = new System.Drawing.Size(300, 25);
+            sizeLabel1.Font = new System.Drawing.Font("Arial", 10, System.Drawing.FontStyle.Bold);
 
             // Метка "Размер"
             Label sizeLabel = new Label();
             sizeLabel.Text = "Размер:";
-            sizeLabel.Location = new System.Drawing.Point(300, 15);
-            sizeLabel.Size = new System.Drawing.Size(50, 25);
+            sizeLabel.Location = new System.Drawing.Point(10, 100);
+            sizeLabel.Size = new System.Drawing.Size(70, 25);
 
             // NumericUpDown размера
             this.sizeNumeric = new NumericUpDown();
-            this.sizeNumeric.Location = new System.Drawing.Point(355, 12);
+            this.sizeNumeric.Location = new System.Drawing.Point(80, 98);
             this.sizeNumeric.Size = new System.Drawing.Size(60, 25);
             this.sizeNumeric.Minimum = 5;
             this.sizeNumeric.Maximum = 100;
@@ -84,12 +91,12 @@
             // Метка "Скорость"
             Label speedLabel = new Label();
             speedLabel.Text = "Скорость (мс):";
-            speedLabel.Location = new System.Drawing.Point(450, 15);
+            speedLabel.Location = new System.Drawing.Point(350, 15);
             speedLabel.Size = new System.Drawing.Size(80, 25);
 
             // TrackBar скорости
             this.speedTrackBar = new TrackBar();
-            this.speedTrackBar.Location = new System.Drawing.Point(535, 5);
+            this.speedTrackBar.Location = new System.Drawing.Point(425, 10);
             this.speedTrackBar.Size = new System.Drawing.Size(200, 40);
             this.speedTrackBar.Minimum = 1;
             this.speedTrackBar.Maximum = 500;   // Максимальная задержка 500 мс
@@ -99,7 +106,7 @@
             // Кнопка Старт
             this.startButton = new Button();
             this.startButton.Text = "Старт";
-            this.startButton.Location = new System.Drawing.Point(760, 10);
+            this.startButton.Location = new System.Drawing.Point(640, 10);
             this.startButton.Size = new System.Drawing.Size(100, 35);
             this.startButton.BackColor = System.Drawing.Color.LightGreen;
             this.startButton.Click += new EventHandler(this.StartButton_Click);
@@ -107,7 +114,7 @@
             // Кнопка Сброс
             this.resetButton = new Button();
             this.resetButton.Text = "Сброс";
-            this.resetButton.Location = new System.Drawing.Point(870, 10);
+            this.resetButton.Location = new System.Drawing.Point(875, 10);
             this.resetButton.Size = new System.Drawing.Size(100, 35);
             this.resetButton.BackColor = System.Drawing.Color.LightCoral;
             this.resetButton.Click += new EventHandler(this.ResetButton_Click);
@@ -115,16 +122,16 @@
             // Кнопка Пауза
             this.pauseButton = new Button();
             this.pauseButton.Text = "Пауза";
-            this.pauseButton.Location = new System.Drawing.Point(760, 55);
-            this.pauseButton.Size = new System.Drawing.Size(100, 35);
+            this.pauseButton.Location = new System.Drawing.Point(750, 10);
+            this.pauseButton.Size = new System.Drawing.Size(120, 35);
             this.pauseButton.BackColor = System.Drawing.Color.LightYellow;
             this.pauseButton.Click += new EventHandler(this.PauseButton_Click);
 
             // Кнопка Новый массив
             this.newArrayButton = new Button();
-            this.newArrayButton.Text = "Новый массив";
-            this.newArrayButton.Location = new System.Drawing.Point(870, 55);
-            this.newArrayButton.Size = new System.Drawing.Size(100, 35);
+            this.newArrayButton.Text = "Новая выборка";
+            this.newArrayButton.Location = new System.Drawing.Point(7, 137);
+            this.newArrayButton.Size = new System.Drawing.Size(270, 35);
             this.newArrayButton.BackColor = System.Drawing.Color.LightBlue;
             this.newArrayButton.Click += new EventHandler(this.NewArrayButton_Click);
 
@@ -138,18 +145,18 @@
             // Группа легенды
             GroupBox legendBox = new GroupBox();
             legendBox.Location = new System.Drawing.Point(990, 10);
-            legendBox.Size = new System.Drawing.Size(160, 180);
+            legendBox.Size = new System.Drawing.Size(150, 165);
             legendBox.Text = "Легенда";
 
             AddLegendItem(legendBox, System.Drawing.Color.SteelBlue, "Обычный элемент", 0);
             AddLegendItem(legendBox, System.Drawing.Color.Orange, "Сравниваемый", 1);
             AddLegendItem(legendBox, System.Drawing.Color.Red, "Перемещаемый", 2);
-            AddLegendItem(legendBox, System.Drawing.Color.LightGreen, "Отсортированный", 3);
+            AddLegendItem(legendBox, System.Drawing.Color.LightGreen, "Сортированный", 3);
             AddLegendItem(legendBox, System.Drawing.Color.Purple, "Опорный элемент", 4);
 
             // Добавление всех контролов на панель управления
             this.controlPanel.Controls.AddRange(new System.Windows.Forms.Control[] {
-                algoLabel, this.algorithmCombo, sizeLabel, this.sizeNumeric,
+                algoLabel, this.algorithmCombo, sizeLabel, sizeLabel1, this.sizeNumeric,
                 speedLabel, this.speedTrackBar, this.startButton, this.resetButton,
                 this.pauseButton, this.newArrayButton, this.statusLabel, legendBox
             });
