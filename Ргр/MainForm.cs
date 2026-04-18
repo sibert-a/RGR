@@ -74,7 +74,6 @@ namespace РГР
 
         #region Обработчики событий формы (Help, Resize)
 
-        // Обработчик кнопки "?" в заголовке окна
         protected override void OnHelpButtonClicked(CancelEventArgs e)
         {
             e.Cancel = true;
@@ -82,7 +81,6 @@ namespace РГР
             helpForm.Show(this);
         }
 
-        // Обработчик клавиши F1
         private void MainForm_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.F1)
@@ -139,7 +137,6 @@ namespace РГР
 
         #region Вспомогательные методы для координат
 
-        // Координаты относительно панели canvas (без учёта её расположения на форме)
         private void GetElementScreenPosition(int index, out int x, out int y)
         {
             int squareSize = 35;
@@ -153,51 +150,37 @@ namespace РГР
             y = startY;
         }
 
-        // Координаты для панели сравнения (тоже локальные для canvas)
         private void GetComparisonTargetPosition(int index1, int index2, out int x1, out int y1, out int x2, out int y2)
         {
             int squareSize = 35;
-            int verticalOffset = 70; // на сколько поднимаем вверх
+            int verticalOffset = 70;
 
             GetElementScreenPosition(index1, out int elemX1, out int elemY1);
             GetElementScreenPosition(index2, out int elemX2, out int elemY2);
 
-            // Центр между двумя прямоугольниками (середина отрезка, соединяющего их центры)
             float centerX1 = elemX1 + squareSize / 2f;
             float centerX2 = elemX2 + squareSize / 2f;
             float midX = (centerX1 + centerX2) / 2f;
 
-            // Желаемый зазор между элементами для знака сравнения (в пикселях)
             int desiredGap = 80;
-
-            // Расстояние между центрами
-            float distance = Math.Abs(centerX1 - centerX2);
-
-            // Если расстояние уже достаточное, можем даже немного свести; иначе разводим
             float halfGap = desiredGap / 2f;
 
-            // Вычисляем целевые X: левый элемент сдвигается так, чтобы его правый край был левее midX на halfGap,
-            // правый элемент - чтобы левый край был правее midX на halfGap.
-            // Но проще: targetX1 = midX - halfGap - squareSize/2 (чтобы центр был смещён)
-            // targetX2 = midX + halfGap - squareSize/2
             float targetCenterX1 = midX - halfGap;
             float targetCenterX2 = midX + halfGap;
 
             x1 = (int)(targetCenterX1 - squareSize / 2f);
             x2 = (int)(targetCenterX2 - squareSize / 2f);
 
-            // Y одинаковый
             y1 = elemY1 - verticalOffset;
             y2 = elemY2 - verticalOffset;
 
-            // Корректируем, чтобы не выходило за пределы канваса (опционально)
             x1 = Math.Max(5, x1);
             x2 = Math.Min(canvas.Width - squareSize - 5, x2);
         }
 
         #endregion
 
-        #region Анимации (подъём, возврат)
+        #region Анимации
 
         private async Task AnimateFlyToComparison(int index1, int index2)
         {
@@ -213,34 +196,28 @@ namespace РГР
             isFlying1 = true;
             isFlying2 = true;
 
-            // Этап 1: Вертикальный подъём
             int verticalSteps = 8;
             for (int step = 0; step <= verticalSteps; step++)
             {
                 float t = (float)step / verticalSteps;
-                float easeT = 1 - (float)Math.Pow(1 - t, 2); // плавное замедление
-
+                float easeT = 1 - (float)Math.Pow(1 - t, 2);
                 flyX1 = startX1;
                 flyY1 = startY1 + (targetY1 - startY1) * easeT;
                 flyX2 = startX2;
                 flyY2 = startY2 + (targetY2 - startY2) * easeT;
-
                 canvas.Invalidate();
                 await Task.Delay(5);
             }
 
-            // Этап 2: Горизонтальное перемещение
             int horizontalSteps = 10;
             for (int step = 0; step <= horizontalSteps; step++)
             {
                 float t = (float)step / horizontalSteps;
-                float easeT = 1 - (1 - t) * (1 - t); // плавное ускорение в начале
-
+                float easeT = 1 - (1 - t) * (1 - t);
                 flyX1 = startX1 + (targetX1 - startX1) * easeT;
                 flyY1 = targetY1;
                 flyX2 = startX2 + (targetX2 - startX2) * easeT;
                 flyY2 = targetY2;
-
                 canvas.Invalidate();
                 await Task.Delay(5);
             }
@@ -258,7 +235,6 @@ namespace РГР
 
             GetElementScreenPosition(index, out int startX, out int startY);
             int targetY = startY - 70;
-            int targetX = startX;
 
             flyingValue1 = array[index];
             isFlying1 = true;
@@ -268,10 +244,8 @@ namespace РГР
             {
                 float t = (float)step / steps;
                 float easeT = 1 - (float)Math.Pow(1 - t, 2);
-
                 flyX1 = startX;
                 flyY1 = startY + (targetY - startY) * easeT;
-
                 canvas.Invalidate();
                 await Task.Delay(5);
             }
@@ -294,7 +268,6 @@ namespace РГР
 
             if (savedIndex1.HasValue && savedIndex2.HasValue)
             {
-                // Текущие позиции (панель сравнения) становятся стартовыми для возврата
                 GetComparisonTargetPosition(savedIndex1.Value, savedIndex2.Value, out int currentX1, out int currentY1, out int currentX2, out int currentY2);
                 GetElementScreenPosition(savedIndex1.Value, out int targetX1, out int targetY1);
                 GetElementScreenPosition(savedIndex2.Value, out int targetX2, out int targetY2);
@@ -304,47 +277,39 @@ namespace РГР
                 isFlying1 = true;
                 isFlying2 = true;
 
-                // Очищаем внешние элементы, чтобы не мешали
                 externalElement1 = null;
                 externalElement2 = null;
                 comparisonSign = "";
                 canvas.Invalidate();
 
-                // Этап 1: Горизонтальное движение к исходной X (на той же высоте)
                 int horizontalSteps = 10;
                 for (int step = 0; step <= horizontalSteps; step++)
                 {
                     float t = (float)step / horizontalSteps;
                     float easeT = 1 - (1 - t) * (1 - t);
-
                     flyX1 = currentX1 + (targetX1 - currentX1) * easeT;
                     flyY1 = currentY1;
                     flyX2 = currentX2 + (targetX2 - currentX2) * easeT;
                     flyY2 = currentY2;
-
                     canvas.Invalidate();
                     await Task.Delay(5);
                 }
 
-                // Этап 2: Вертикальное опускание
                 int verticalSteps = 8;
                 for (int step = 0; step <= verticalSteps; step++)
                 {
                     float t = (float)step / verticalSteps;
-                    float easeT = t * t; // плавное ускорение
-
+                    float easeT = t * t;
                     flyX1 = targetX1;
                     flyY1 = currentY1 + (targetY1 - currentY1) * easeT;
                     flyX2 = targetX2;
                     flyY2 = currentY2 + (targetY2 - currentY2) * easeT;
-
                     canvas.Invalidate();
                     await Task.Delay(5);
                 }
             }
             else if (savedIndex1.HasValue)
             {
-                // Один элемент (аналогично, но только вертикально)
                 GetElementScreenPosition(savedIndex1.Value, out int targetX, out int targetY);
                 int currentY = targetY - 70;
                 flyingValue1 = savedValue1.Value;
@@ -374,19 +339,16 @@ namespace РГР
 
         private async Task AnimateSingleFlyBack()
         {
-            await AnimateFlyBack(); // переиспользуем общий метод
+            await AnimateFlyBack();
         }
 
         private async Task AnimateSwapOnTop(int index1, int index2)
         {
-            // Получаем текущие позиции (статичные элементы сейчас висят)
             GetComparisonTargetPosition(index1, index2, out int x1, out int y1, out int x2, out int y2);
 
-            // Сохраняем значения, которые уже новые в массиве
             int val1 = array[index1];
             int val2 = array[index2];
 
-            // Переключаемся в режим летающих элементов, скрываем статичные
             externalElement1 = null;
             externalElement2 = null;
             comparisonSign = "";
@@ -408,19 +370,67 @@ namespace РГР
                 flyY1 = startY1 + (startY2 - startY1) * t;
                 flyX2 = startX2 + (startX1 - startX2) * t;
                 flyY2 = startY2 + (startY1 - startY2) * t;
-
                 canvas.Invalidate();
                 await Task.Delay(5);
             }
 
-            // После анимации обмена переходим обратно в статичный режим
             isFlying1 = false;
             isFlying2 = false;
             externalElement1 = val1;
             externalElement2 = val2;
             externalElementIndex1 = index1;
             externalElementIndex2 = index2;
+            canvas.Invalidate();
+        }
 
+        /// <summary>
+        /// Анимация перемещения одного элемента с позиции sourceIndex на заданные координаты (targetX, targetY)
+        /// </summary>
+        private async Task AnimateFlyToPosition(int sourceIndex, int targetX, int targetY)
+        {
+            GetElementScreenPosition(sourceIndex, out int startX, out int startY);
+
+            externalElementIndex1 = sourceIndex;
+            flyingValue1 = array[sourceIndex];
+            isFlying1 = true;
+
+            int verticalSteps = 8;
+            int liftY = startY - 70;
+            for (int step = 0; step <= verticalSteps; step++)
+            {
+                float t = (float)step / verticalSteps;
+                float easeT = 1 - (float)Math.Pow(1 - t, 2);
+                flyX1 = startX;
+                flyY1 = startY + (liftY - startY) * easeT;
+                canvas.Invalidate();
+                await Task.Delay(5);
+            }
+
+            int horizontalSteps = 10;
+            for (int step = 0; step <= horizontalSteps; step++)
+            {
+                float t = (float)step / horizontalSteps;
+                float easeT = 1 - (1 - t) * (1 - t);
+                flyX1 = startX + (targetX - startX) * easeT;
+                flyY1 = liftY;
+                canvas.Invalidate();
+                await Task.Delay(5);
+            }
+
+            int downSteps = 8;
+            for (int step = 0; step <= downSteps; step++)
+            {
+                float t = (float)step / downSteps;
+                float easeT = t * t;
+                flyX1 = targetX;
+                flyY1 = liftY + (targetY - liftY) * easeT;
+                canvas.Invalidate();
+                await Task.Delay(5);
+            }
+
+            isFlying1 = false;
+            externalElement1 = null;
+            externalElementIndex1 = null;
             canvas.Invalidate();
         }
 
@@ -440,17 +450,14 @@ namespace РГР
             int startX = Math.Max(10, (canvas.Width - totalWidth) / 2);
             int startY = (canvas.Height - squareSize) / 2;
 
-            // 1. Рисуем элементы массива (кроме тех, что в полёте или являются внешними)
+            // 1. Основной массив
             for (int i = 0; i < array.Length; i++)
             {
                 int x = startX + i * (squareSize + spacing);
                 int y = startY;
 
-                // Пропускаем элементы, которые сейчас летят
                 if ((externalElementIndex1 == i && isFlying1) || (externalElementIndex2 == i && isFlying2))
                     continue;
-
-                // Пропускаем элементы, которые в данный момент отображаются как внешние (в панели сравнения или поднятые)
                 if (externalElementIndex1 == i && externalElement1.HasValue)
                     continue;
                 if (externalElementIndex2 == i && externalElement2.HasValue)
@@ -458,9 +465,7 @@ namespace РГР
 
                 Color backColor = isSorted[i] ? sortedColor : defaultColor;
                 using (Brush brush = new SolidBrush(backColor))
-                {
                     g.FillRectangle(brush, x, y, squareSize, squareSize);
-                }
                 g.DrawRectangle(Pens.Black, x, y, squareSize, squareSize);
 
                 using (Font font = new Font("Arial", 9, FontStyle.Bold))
@@ -473,10 +478,7 @@ namespace РГР
                 }
             }
 
-            // 2. Рисуем летящие элементы
             DrawFlyingElementsOnCanvas(g, squareSize);
-
-            // 3. Рисуем панель сравнения (только если элементы не летят)
             DrawComparisonPanelOnCanvas(g, squareSize);
         }
 
@@ -523,7 +525,6 @@ namespace РГР
                 GetComparisonTargetPosition(externalElementIndex1.Value, externalElementIndex2.Value,
                     out int x1, out int y1, out int x2, out int y2);
 
-                // Первый элемент
                 using (Brush brush = new SolidBrush(defaultColor))
                     g.FillRectangle(brush, x1, y1, squareSize, squareSize);
                 g.DrawRectangle(Pens.Black, x1, y1, squareSize, squareSize);
@@ -536,7 +537,6 @@ namespace РГР
                     g.DrawString(valueText, font, Brushes.Black, textX, textY);
                 }
 
-                // Знак сравнения
                 int centerX = (x1 + x2) / 2 + squareSize / 2;
                 int centerY = y1 + squareSize / 2;
                 using (Font font = new Font("Arial", 18, FontStyle.Bold))
@@ -547,7 +547,6 @@ namespace РГР
                     g.DrawString(comparisonSign, font, Brushes.DarkRed, signX, signY);
                 }
 
-                // Второй элемент
                 using (Brush brush = new SolidBrush(defaultColor))
                     g.FillRectangle(brush, x2, y2, squareSize, squareSize);
                 g.DrawRectangle(Pens.Black, x2, y2, squareSize, squareSize);
@@ -562,7 +561,6 @@ namespace РГР
             }
             else if (externalElement1.HasValue && externalElementIndex1.HasValue)
             {
-                // Один поднятый элемент (например, в сортировке вставками)
                 GetElementScreenPosition(externalElementIndex1.Value, out int x, out int y);
                 int targetY = y - 70;
                 using (Brush brush = new SolidBrush(defaultColor))
@@ -581,7 +579,7 @@ namespace РГР
 
         #endregion
 
-        #region Управление сортировкой (старт, пауза, сброс)
+        #region Управление сортировкой
 
         private async void StartButton_Click(object sender, EventArgs e)
         {
@@ -695,7 +693,7 @@ namespace РГР
 
         #endregion
 
-        #region Вспомогательные методы сортировки (Delay, ShowComparison, ClearExternal, Swap)
+        #region Вспомогательные методы сортировки
 
         private async Task Delay(CancellationToken token)
         {
@@ -746,8 +744,6 @@ namespace РГР
 
         private async Task Swap(int i, int j, CancellationToken token)
         {
-            // Если элементы ещё не подняты (после ClearExternal или изначально),
-            // сначала поднимаем их на панель сравнения
             bool needLift = !(externalElementIndex1 == i && externalElementIndex2 == j && externalElement1.HasValue && externalElement2.HasValue);
             if (needLift)
             {
@@ -756,19 +752,15 @@ namespace РГР
                 await Delay(token);
             }
 
-            // Обмен значений в массиве
             int temp = array[i];
             array[i] = array[j];
             array[j] = temp;
 
-            // Анимация обмена наверху
             await AnimateSwapOnTop(i, j);
 
-            // После обмена знак сравнения сбрасываем
             comparisonSign = "";
             canvas.Invalidate();
 
-            // Возвращаем элементы на места
             await ClearExternal();
             canvas.Invalidate();
             await Delay(token);
@@ -778,7 +770,6 @@ namespace РГР
 
         #region Алгоритмы сортировки
 
-        // -------------------- Пузырьковая сортировка --------------------
         private async Task BubbleSort(CancellationToken token)
         {
             for (int i = 0; i < array.Length - 1; i++)
@@ -805,7 +796,6 @@ namespace РГР
             }
         }
 
-        // -------------------- Сортировка выбором --------------------
         private async Task SelectionSort(CancellationToken token)
         {
             for (int i = 0; i < array.Length - 1; i++)
@@ -828,7 +818,6 @@ namespace РГР
             }
         }
 
-        // -------------------- Сортировка вставками --------------------
         private async Task InsertionSort(CancellationToken token)
         {
             isSorted[0] = true;
@@ -854,7 +843,6 @@ namespace РГР
             }
         }
 
-        // -------------------- Сортировка слиянием --------------------
         private async Task MergeSort(int left, int right, CancellationToken token)
         {
             if (left < right)
@@ -878,11 +866,24 @@ namespace РГР
 
             int iIdx = 0, jIdx = 0, k = left;
 
+            if (externalElement1.HasValue || externalElement2.HasValue)
+                await ClearExternal();
+
             while (iIdx < n1 && jIdx < n2)
             {
                 token.ThrowIfCancellationRequested();
 
                 await ShowComparison(left + iIdx, mid + 1 + jIdx, token);
+                await ClearExternal();
+
+                int sourceIdx;
+                if (L[iIdx] <= R[jIdx])
+                    sourceIdx = left + iIdx;
+                else
+                    sourceIdx = mid + 1 + jIdx;
+
+                GetElementScreenPosition(k, out int targetX, out int targetY);
+                await AnimateFlyToPosition(sourceIdx, targetX, targetY);
 
                 if (L[iIdx] <= R[jIdx])
                 {
@@ -895,7 +896,6 @@ namespace РГР
                     jIdx++;
                 }
 
-                await ClearExternal();
                 canvas.Invalidate();
                 await Delay(token);
                 k++;
@@ -904,6 +904,9 @@ namespace РГР
             while (iIdx < n1)
             {
                 token.ThrowIfCancellationRequested();
+                int sourceIdx = left + iIdx;
+                GetElementScreenPosition(k, out int targetX, out int targetY);
+                await AnimateFlyToPosition(sourceIdx, targetX, targetY);
                 array[k] = L[iIdx];
                 iIdx++; k++;
                 canvas.Invalidate();
@@ -913,16 +916,21 @@ namespace РГР
             while (jIdx < n2)
             {
                 token.ThrowIfCancellationRequested();
+                int sourceIdx = mid + 1 + jIdx;
+                GetElementScreenPosition(k, out int targetX, out int targetY);
+                await AnimateFlyToPosition(sourceIdx, targetX, targetY);
                 array[k] = R[jIdx];
                 jIdx++; k++;
                 canvas.Invalidate();
                 await Delay(token);
             }
 
+            externalElement1 = externalElement2 = null;
+            externalElementIndex1 = externalElementIndex2 = null;
+            comparisonSign = "";
             canvas.Invalidate();
         }
 
-        // -------------------- Быстрая сортировка --------------------
         private async Task QuickSort(int low, int high, CancellationToken token)
         {
             if (low < high)
@@ -960,7 +968,6 @@ namespace РГР
             return i + 1;
         }
 
-        // -------------------- Древесная сортировка --------------------
         private async Task TreeSort(CancellationToken token)
         {
             TreeNode root = null;
