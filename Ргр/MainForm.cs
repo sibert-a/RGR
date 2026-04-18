@@ -10,6 +10,8 @@ namespace РГР
 {
     public partial class MainForm : Form
     {
+        #region Поля и константы
+
         private bool[] isSorted;
         private int[] array;
         private int[] originalArray;
@@ -42,6 +44,10 @@ namespace РГР
         private const int verticalSteps = 10;
         private int currentStep = 0;
 
+        #endregion
+
+        #region Конструктор и инициализация
+
         public MainForm()
         {
             InitializeComponent();
@@ -55,7 +61,6 @@ namespace РГР
             this.KeyDown += MainForm_KeyDown;
 
             this.Resize += MainForm_Resize;
-            // Подписка на Paint формы больше не нужна — всё рисуется на canvas
 
             typeof(Panel).GetProperty("DoubleBuffered",
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
@@ -64,6 +69,10 @@ namespace РГР
             GenerateArray();
             originalArray = array.ToArray();
         }
+
+        #endregion
+
+        #region Обработчики событий формы (Help, Resize)
 
         // Обработчик кнопки "?" в заголовке окна
         protected override void OnHelpButtonClicked(CancelEventArgs e)
@@ -98,6 +107,10 @@ namespace РГР
             }
         }
 
+        #endregion
+
+        #region Генерация массива
+
         private void GenerateArray()
         {
             arraySize = (int)sizeNumeric.Value;
@@ -121,6 +134,10 @@ namespace РГР
 
             canvas.Invalidate();
         }
+
+        #endregion
+
+        #region Вспомогательные методы для координат
 
         // Координаты относительно панели canvas (без учёта её расположения на форме)
         private void GetElementScreenPosition(int index, out int x, out int y)
@@ -178,6 +195,10 @@ namespace РГР
             x2 = Math.Min(canvas.Width - squareSize - 5, x2);
         }
 
+        #endregion
+
+        #region Анимации (подъём, возврат)
+
         private async Task AnimateFlyToComparison(int index1, int index2)
         {
             externalElementIndex1 = index1;
@@ -205,7 +226,7 @@ namespace РГР
                 flyY2 = startY2 + (targetY2 - startY2) * easeT;
 
                 canvas.Invalidate();
-                await Task.Delay(2);
+                await Task.Delay(5);
             }
 
             // Этап 2: Горизонтальное перемещение
@@ -221,7 +242,7 @@ namespace РГР
                 flyY2 = targetY2;
 
                 canvas.Invalidate();
-                await Task.Delay(2);
+                await Task.Delay(5);
             }
 
             isFlying1 = false;
@@ -252,7 +273,7 @@ namespace РГР
                 flyY1 = startY + (targetY - startY) * easeT;
 
                 canvas.Invalidate();
-                await Task.Delay(2);
+                await Task.Delay(5);
             }
 
             isFlying1 = false;
@@ -302,7 +323,7 @@ namespace РГР
                     flyY2 = currentY2;
 
                     canvas.Invalidate();
-                    await Task.Delay(2);
+                    await Task.Delay(5);
                 }
 
                 // Этап 2: Вертикальное опускание
@@ -318,7 +339,7 @@ namespace РГР
                     flyY2 = currentY2 + (targetY2 - currentY2) * easeT;
 
                     canvas.Invalidate();
-                    await Task.Delay(2);
+                    await Task.Delay(5);
                 }
             }
             else if (savedIndex1.HasValue)
@@ -340,7 +361,7 @@ namespace РГР
                     flyX1 = targetX;
                     flyY1 = currentY + (targetY - currentY) * easeT;
                     canvas.Invalidate();
-                    await Task.Delay(2);
+                    await Task.Delay(5);
                 }
             }
 
@@ -356,7 +377,57 @@ namespace РГР
             await AnimateFlyBack(); // переиспользуем общий метод
         }
 
-        // ========== ВСЯ ОТРИСОВКА ВНУТРИ CANVAS ==========
+        private async Task AnimateSwapOnTop(int index1, int index2)
+        {
+            // Получаем текущие позиции (статичные элементы сейчас висят)
+            GetComparisonTargetPosition(index1, index2, out int x1, out int y1, out int x2, out int y2);
+
+            // Сохраняем значения, которые уже новые в массиве
+            int val1 = array[index1];
+            int val2 = array[index2];
+
+            // Переключаемся в режим летающих элементов, скрываем статичные
+            externalElement1 = null;
+            externalElement2 = null;
+            comparisonSign = "";
+            flyingValue1 = val1;
+            flyingValue2 = val2;
+            isFlying1 = true;
+            isFlying2 = true;
+            flyX1 = x1; flyY1 = y1;
+            flyX2 = x2; flyY2 = y2;
+            canvas.Invalidate();
+
+            float startX1 = x1, startY1 = y1;
+            float startX2 = x2, startY2 = y2;
+            int steps = 12;
+            for (int step = 0; step <= steps; step++)
+            {
+                float t = (float)step / steps;
+                flyX1 = startX1 + (startX2 - startX1) * t;
+                flyY1 = startY1 + (startY2 - startY1) * t;
+                flyX2 = startX2 + (startX1 - startX2) * t;
+                flyY2 = startY2 + (startY1 - startY2) * t;
+
+                canvas.Invalidate();
+                await Task.Delay(5);
+            }
+
+            // После анимации обмена переходим обратно в статичный режим
+            isFlying1 = false;
+            isFlying2 = false;
+            externalElement1 = val1;
+            externalElement2 = val2;
+            externalElementIndex1 = index1;
+            externalElementIndex2 = index2;
+
+            canvas.Invalidate();
+        }
+
+        #endregion
+
+        #region Отрисовка на Canvas
+
         private void Canvas_Paint(object sender, PaintEventArgs e)
         {
             if (array == null || array.Length == 0) return;
@@ -508,7 +579,10 @@ namespace РГР
             }
         }
 
-        // ========== УПРАВЛЕНИЕ СОРТИРОВКОЙ ==========
+        #endregion
+
+        #region Управление сортировкой (старт, пауза, сброс)
+
         private async void StartButton_Click(object sender, EventArgs e)
         {
             if (isSorting) return;
@@ -619,6 +693,10 @@ namespace РГР
             pauseButton.Text = (sorting && paused) ? "Продолжить" : "Пауза";
         }
 
+        #endregion
+
+        #region Вспомогательные методы сортировки (Delay, ShowComparison, ClearExternal, Swap)
+
         private async Task Delay(CancellationToken token)
         {
             int delayMs = speedTrackBar.Value;
@@ -686,52 +764,9 @@ namespace РГР
             await Delay(token);
         }
 
-        private async Task AnimateSwapOnTop(int index1, int index2)
-        {
-            // Получаем текущие позиции (статичные элементы сейчас висят)
-            GetComparisonTargetPosition(index1, index2, out int x1, out int y1, out int x2, out int y2);
+        #endregion
 
-            // Сохраняем значения, которые уже новые в массиве
-            int val1 = array[index1];
-            int val2 = array[index2];
-
-            // Переключаемся в режим летающих элементов, скрываем статичные
-            externalElement1 = null;
-            externalElement2 = null;
-            comparisonSign = "";
-            flyingValue1 = val1;
-            flyingValue2 = val2;
-            isFlying1 = true;
-            isFlying2 = true;
-            flyX1 = x1; flyY1 = y1;
-            flyX2 = x2; flyY2 = y2;
-            canvas.Invalidate();
-
-            float startX1 = x1, startY1 = y1;
-            float startX2 = x2, startY2 = y2;
-            int steps = 12;
-            for (int step = 0; step <= steps; step++)
-            {
-                float t = (float)step / steps;
-                flyX1 = startX1 + (startX2 - startX1) * t;
-                flyY1 = startY1 + (startY2 - startY1) * t;
-                flyX2 = startX2 + (startX1 - startX2) * t;
-                flyY2 = startY2 + (startY1 - startY2) * t;
-
-                canvas.Invalidate();
-                await Task.Delay(6);
-            }
-
-            // После анимации обмена переходим обратно в статичный режим
-            isFlying1 = false;
-            isFlying2 = false;
-            externalElement1 = val1;
-            externalElement2 = val2;
-            externalElementIndex1 = index1;
-            externalElementIndex2 = index2;
-
-            canvas.Invalidate();
-        }
+        #region Алгоритмы сортировки
 
         // -------------------- Пузырьковая сортировка --------------------
         private async Task BubbleSort(CancellationToken token)
@@ -967,6 +1002,10 @@ namespace РГР
             }
         }
 
+        #endregion
+
+        #region Вспомогательный класс TreeNode
+
         private class TreeNode
         {
             public int Value { get; set; }
@@ -974,5 +1013,7 @@ namespace РГР
             public TreeNode Right { get; set; }
             public TreeNode(int value) { Value = value; }
         }
+
+        #endregion
     }
 }

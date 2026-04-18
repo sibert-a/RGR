@@ -65,9 +65,9 @@
             this.resetButton.Font = new System.Drawing.Font("Arial", 10, System.Drawing.FontStyle.Bold);
             this.resetButton.Click += new EventHandler(this.ResetButton_Click);
 
-            // Метка Скорость
+            // Метка Задержка
             Label speedLabel = new Label();
-            speedLabel.Text = "Скорость (мс):";
+            speedLabel.Text = "Задержка (мс):";
             speedLabel.Location = new System.Drawing.Point(15, 155);
             speedLabel.Size = new System.Drawing.Size(180, 20);
             speedLabel.Font = new System.Drawing.Font("Arial", 9, System.Drawing.FontStyle.Bold);
@@ -80,6 +80,20 @@
             this.speedTrackBar.Maximum = 500;
             this.speedTrackBar.Value = 50;
             this.speedTrackBar.TickFrequency = 50;
+
+            // Метка минимум трекбара
+            Label minTBLabel = new Label();
+            minTBLabel.Text = "1";
+            minTBLabel.Location = new System.Drawing.Point(15, 200);
+            minTBLabel.Size = new System.Drawing.Size(10, 20);
+            minTBLabel.Font = new System.Drawing.Font("Arial", 9, System.Drawing.FontStyle.Regular);
+
+            // Метка максимум трекбара
+            Label maxTBLabel = new Label();
+            maxTBLabel.Text = "500";
+            maxTBLabel.Location = new System.Drawing.Point(170, 200);
+            maxTBLabel.Size = new System.Drawing.Size(30, 20);
+            maxTBLabel.Font = new System.Drawing.Font("Arial", 9, System.Drawing.FontStyle.Regular);
 
             // Метка Выбор алгоритма
             Label algoLabel = new Label();
@@ -144,6 +158,8 @@
                 this.pauseButton,
                 this.resetButton,
                 speedLabel,
+                minTBLabel,
+                maxTBLabel,
                 this.speedTrackBar,
                 algoLabel,
                 this.algorithmCombo,
