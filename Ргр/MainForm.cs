@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Drawing;
 using System.Threading;
 using System.Threading.Tasks;
@@ -40,7 +41,15 @@ namespace РГР
         public MainForm()
         {
             InitializeComponent();
+            this.HelpButton = true;
+            this.MaximizeBox = false;
+            this.MinimizeBox = false;
+            this.FormBorderStyle = FormBorderStyle.FixedSingle;
+            this.KeyPreview = true;
+            this.KeyDown += MainForm_KeyDown;
+
             this.Resize += MainForm_Resize;
+
             // Включаем двойную буферизацию для устранения мерцания
             typeof(Panel).GetProperty("DoubleBuffered",
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
@@ -48,9 +57,29 @@ namespace РГР
             typeof(Panel).GetProperty("DoubleBuffered",
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                 ?.SetValue(externalPanel, true, null);
-
+            
+           
+            
             GenerateArray();
             originalArray = array.ToArray();
+        }
+
+        // Обработчик нажатия на кнопку "?" в заголовке окна
+        protected override void OnHelpButtonClicked(CancelEventArgs e)
+        {
+            e.Cancel = true;  // Отключаем стандартное поведение
+            HelpForm helpForm = new HelpForm();
+            helpForm.Show(this);
+        }
+
+        // Обработчик нажатия клавиши F1
+        private void MainForm_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.F1)
+            {
+                HelpForm helpForm = new HelpForm();
+                helpForm.Show(this);
+            }
         }
 
         private void MainForm_Resize(object sender, EventArgs e)
