@@ -746,15 +746,25 @@ namespace РГР
 
         private async Task Swap(int i, int j, CancellationToken token)
         {
-            // Элементы уже наверху после ShowComparison, обмениваем значения в массиве
+            // Если элементы ещё не подняты (после ClearExternal или изначально),
+            // сначала поднимаем их на панель сравнения
+            bool needLift = !(externalElementIndex1 == i && externalElementIndex2 == j && externalElement1.HasValue && externalElement2.HasValue);
+            if (needLift)
+            {
+                await AnimateFlyToComparison(i, j);
+                canvas.Invalidate();
+                await Delay(token);
+            }
+
+            // Обмен значений в массиве
             int temp = array[i];
             array[i] = array[j];
             array[j] = temp;
 
-            // Меняем местами визуально наверху
+            // Анимация обмена наверху
             await AnimateSwapOnTop(i, j);
 
-            // После обмена знак сравнения уже не актуален – убираем
+            // После обмена знак сравнения сбрасываем
             comparisonSign = "";
             canvas.Invalidate();
 
@@ -821,31 +831,26 @@ namespace РГР
         // -------------------- Сортировка вставками --------------------
         private async Task InsertionSort(CancellationToken token)
         {
+            isSorted[0] = true;
             for (int i = 1; i < array.Length; i++)
             {
                 token.ThrowIfCancellationRequested();
-                int key = array[i];
-                int j = i - 1;
-
-                await AnimateSingleFlyToComparison(i);
-                canvas.Invalidate();
-                await Delay(token);
-
-                while (j >= 0 && array[j] > key)
+                for (int j = i; j > 0; j--)
                 {
-                    token.ThrowIfCancellationRequested();
-                    await ShowComparison(j, i, token);
-                    array[j + 1] = array[j];
-                    canvas.Invalidate();
-                    await Delay(token);
-                    await ClearExternal();
-                    j--;
+                    await ShowComparison(j - 1, j, token);
+                    if (array[j - 1] > array[j])
+                    {
+                        await Swap(j - 1, j, token);
+                    }
+                    else
+                    {
+                        await ClearExternal();
+                        break;
+                    }
                 }
-                array[j + 1] = key;
-                await ClearSingleExternal();
-                isSorted[i] = true;
+                for (int k = 0; k <= i; k++)
+                    isSorted[k] = true;
                 canvas.Invalidate();
-                await Delay(token);
             }
         }
 
