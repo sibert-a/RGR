@@ -17,180 +17,150 @@
         {
             this.components = new System.ComponentModel.Container();
 
-            // Настройка формы
             this.Text = "Визуализация алгоритмов сортировки";
-            this.ClientSize = new System.Drawing.Size(1200, 700);
+            this.ClientSize = new System.Drawing.Size(1300, 700);
             this.StartPosition = FormStartPosition.CenterScreen;
-            this.BackColor = System.Drawing.SystemColors.Control;
+            this.BackColor = System.Drawing.Color.White;
+            this.DoubleBuffered = true;
 
-            // Панель для внешних элементов (слева)
-            this.externalPanel = new Panel();
-            this.externalPanel.Location = new System.Drawing.Point(10, 10);
-            this.externalPanel.Size = new System.Drawing.Size(120, 400);
-            this.externalPanel.BackColor = System.Drawing.Color.WhiteSmoke;
-            this.externalPanel.BorderStyle = BorderStyle.FixedSingle;
-            this.externalPanel.Paint += new PaintEventHandler(this.ExternalPanel_Paint);
-
-            // Canvas панель (справа от externalPanel)
+            // Панель для массива - убрана белая область, уменьшена высота
             this.canvas = new Panel();
-            this.canvas.Location = new System.Drawing.Point(140, 10);
-            this.canvas.Size = new System.Drawing.Size(1030, 400);
+            this.canvas.Location = new System.Drawing.Point(10, 170);
+            this.canvas.Size = new System.Drawing.Size(1050, 80);
             this.canvas.BackColor = System.Drawing.Color.White;
-            this.canvas.BorderStyle = BorderStyle.FixedSingle;
+            this.canvas.BorderStyle = BorderStyle.None;
             this.canvas.Paint += new PaintEventHandler(this.Canvas_Paint);
 
-            // Панель управления
-            this.controlPanel = new Panel();
-            this.controlPanel.Location = new System.Drawing.Point(10, 420);
-            this.controlPanel.Size = new System.Drawing.Size(1160, 230);
-            this.controlPanel.BackColor = System.Drawing.Color.LightGray;
-
-            // Метка "Алгоритм"
-            Label algoLabel = new Label();
-            algoLabel.Text = "Алгоритм:";
-            algoLabel.Location = new System.Drawing.Point(7, 15);
-            algoLabel.Size = new System.Drawing.Size(80, 30);
-
-            // ComboBox алгоритмов
-            this.algorithmCombo = new ComboBox();
-            this.algorithmCombo.Location = new System.Drawing.Point(90, 12);
-            this.algorithmCombo.Size = new System.Drawing.Size(250, 25);
-            this.algorithmCombo.DropDownStyle = ComboBoxStyle.DropDownList;
-            this.algorithmCombo.Items.AddRange(new object[] {
-                "Пузырьковая (Bubble Sort)",
-                "Сортировка выбором (Selection Sort)",
-                "Сортировка вставками (Insertion Sort)",
-                "Сортировка слиянием (Merge Sort)",
-                "Быстрая сортировка (Quick Sort)",
-                "Древесная (Tree Sort)"
-            });
-            this.algorithmCombo.SelectedIndex = 0;
-            
-            //Настройка массива
-            Label sizeLabel1 = new Label();
-            sizeLabel1.Text = "НАСТРОЙКА МАССИВА:";
-            sizeLabel1.Location = new System.Drawing.Point(10, 60);
-            sizeLabel1.Size = new System.Drawing.Size(300, 25);
-            sizeLabel1.Font = new System.Drawing.Font("Arial", 10, System.Drawing.FontStyle.Bold);
-
-            // Метка "Размер"
-            Label sizeLabel = new Label();
-            sizeLabel.Text = "Размер:";
-            sizeLabel.Location = new System.Drawing.Point(10, 100);
-            sizeLabel.Size = new System.Drawing.Size(70, 25);
-
-            // NumericUpDown размера
-            this.sizeNumeric = new NumericUpDown();
-            this.sizeNumeric.Location = new System.Drawing.Point(80, 98);
-            this.sizeNumeric.Size = new System.Drawing.Size(60, 25);
-            this.sizeNumeric.Minimum = 5;
-            this.sizeNumeric.Maximum = 100;
-            this.sizeNumeric.Value = 30;
-            this.sizeNumeric.ValueChanged += new EventHandler(this.SizeNumeric_ValueChanged);
-
-            // Метка "Скорость"
-            Label speedLabel = new Label();
-            speedLabel.Text = "Скорость (мс):";
-            speedLabel.Location = new System.Drawing.Point(350, 15);
-            speedLabel.Size = new System.Drawing.Size(80, 25);
-
-            // TrackBar скорости
-            this.speedTrackBar = new TrackBar();
-            this.speedTrackBar.Location = new System.Drawing.Point(425, 10);
-            this.speedTrackBar.Size = new System.Drawing.Size(200, 40);
-            this.speedTrackBar.Minimum = 1;
-            this.speedTrackBar.Maximum = 500;   // Максимальная задержка 500 мс
-            this.speedTrackBar.Value = 20;
-            this.speedTrackBar.TickFrequency = 10;
+            // Правая панель с кнопками (прижата вправо)
+            this.sidePanel = new Panel();
+            this.sidePanel.Location = new System.Drawing.Point(1070, 10);
+            this.sidePanel.Size = new System.Drawing.Size(210, 640);
+            this.sidePanel.BackColor = System.Drawing.Color.LightGray;
+            this.sidePanel.BorderStyle = BorderStyle.FixedSingle;
 
             // Кнопка Старт
             this.startButton = new Button();
             this.startButton.Text = "Старт";
-            this.startButton.Location = new System.Drawing.Point(640, 10);
-            this.startButton.Size = new System.Drawing.Size(100, 35);
+            this.startButton.Location = new System.Drawing.Point(15, 15);
+            this.startButton.Size = new System.Drawing.Size(180, 35);
             this.startButton.BackColor = System.Drawing.Color.LightGreen;
+            this.startButton.Font = new System.Drawing.Font("Arial", 10, System.Drawing.FontStyle.Bold);
             this.startButton.Click += new EventHandler(this.StartButton_Click);
-
-            // Кнопка Сброс
-            this.resetButton = new Button();
-            this.resetButton.Text = "Сброс";
-            this.resetButton.Location = new System.Drawing.Point(875, 10);
-            this.resetButton.Size = new System.Drawing.Size(100, 35);
-            this.resetButton.BackColor = System.Drawing.Color.LightCoral;
-            this.resetButton.Click += new EventHandler(this.ResetButton_Click);
 
             // Кнопка Пауза
             this.pauseButton = new Button();
             this.pauseButton.Text = "Пауза";
-            this.pauseButton.Location = new System.Drawing.Point(750, 10);
-            this.pauseButton.Size = new System.Drawing.Size(120, 35);
+            this.pauseButton.Location = new System.Drawing.Point(15, 60);
+            this.pauseButton.Size = new System.Drawing.Size(180, 35);
             this.pauseButton.BackColor = System.Drawing.Color.LightYellow;
+            this.pauseButton.Font = new System.Drawing.Font("Arial", 10, System.Drawing.FontStyle.Bold);
             this.pauseButton.Click += new EventHandler(this.PauseButton_Click);
 
-            // Кнопка Новый массив
+            // Кнопка Сброс
+            this.resetButton = new Button();
+            this.resetButton.Text = "Сброс";
+            this.resetButton.Location = new System.Drawing.Point(15, 105);
+            this.resetButton.Size = new System.Drawing.Size(180, 35);
+            this.resetButton.BackColor = System.Drawing.Color.LightCoral;
+            this.resetButton.Font = new System.Drawing.Font("Arial", 10, System.Drawing.FontStyle.Bold);
+            this.resetButton.Click += new EventHandler(this.ResetButton_Click);
+
+            // Метка Скорость
+            Label speedLabel = new Label();
+            speedLabel.Text = "Скорость (мс):";
+            speedLabel.Location = new System.Drawing.Point(15, 155);
+            speedLabel.Size = new System.Drawing.Size(180, 20);
+            speedLabel.Font = new System.Drawing.Font("Arial", 9, System.Drawing.FontStyle.Bold);
+
+            // TrackBar скорости
+            this.speedTrackBar = new TrackBar();
+            this.speedTrackBar.Location = new System.Drawing.Point(15, 175);
+            this.speedTrackBar.Size = new System.Drawing.Size(180, 45);
+            this.speedTrackBar.Minimum = 1;
+            this.speedTrackBar.Maximum = 500;
+            this.speedTrackBar.Value = 50;
+            this.speedTrackBar.TickFrequency = 50;
+
+            // Метка Выбор алгоритма
+            Label algoLabel = new Label();
+            algoLabel.Text = "Выбор алгоритма:";
+            algoLabel.Location = new System.Drawing.Point(15, 230);
+            algoLabel.Size = new System.Drawing.Size(180, 20);
+            algoLabel.Font = new System.Drawing.Font("Arial", 9, System.Drawing.FontStyle.Bold);
+
+            // ComboBox алгоритмов
+            this.algorithmCombo = new ComboBox();
+            this.algorithmCombo.Location = new System.Drawing.Point(15, 253);
+            this.algorithmCombo.Size = new System.Drawing.Size(180, 24);
+            this.algorithmCombo.DropDownStyle = ComboBoxStyle.DropDownList;
+            this.algorithmCombo.Font = new System.Drawing.Font("Arial", 9);
+            this.algorithmCombo.Items.AddRange(new object[] {
+                "Пузырьковая",
+                "Сортировка выбором",
+                "Сортировка вставками",
+                "Сортировка слиянием",
+                "Быстрая сортировка",
+                "Древесная"
+            });
+            this.algorithmCombo.SelectedIndex = 0;
+
+            // Заголовок НАСТРОЙКА МАССИВА
+            Label sizeLabel1 = new Label();
+            sizeLabel1.Text = "НАСТРОЙКА МАССИВА";
+            sizeLabel1.Location = new System.Drawing.Point(15, 300);
+            sizeLabel1.Size = new System.Drawing.Size(180, 25);
+            sizeLabel1.Font = new System.Drawing.Font("Arial", 10, System.Drawing.FontStyle.Bold);
+            sizeLabel1.TextAlign = ContentAlignment.MiddleCenter;
+
+            // Метка Размер
+            Label sizeLabel = new Label();
+            sizeLabel.Text = "Размер (5-30):";
+            sizeLabel.Location = new System.Drawing.Point(15, 340);
+            sizeLabel.Size = new System.Drawing.Size(180, 20);
+            sizeLabel.Font = new System.Drawing.Font("Arial", 9);
+
+            // NumericUpDown размера
+            this.sizeNumeric = new NumericUpDown();
+            this.sizeNumeric.Location = new System.Drawing.Point(15, 363);
+            this.sizeNumeric.Size = new System.Drawing.Size(180, 23);
+            this.sizeNumeric.Minimum = 5;
+            this.sizeNumeric.Maximum = 30;
+            this.sizeNumeric.Value = 15;
+            this.sizeNumeric.Font = new System.Drawing.Font("Arial", 9);
+            this.sizeNumeric.ValueChanged += new EventHandler(this.SizeNumeric_ValueChanged);
+
+            // Кнопка Новая выборка
             this.newArrayButton = new Button();
             this.newArrayButton.Text = "Новая выборка";
-            this.newArrayButton.Location = new System.Drawing.Point(7, 137);
-            this.newArrayButton.Size = new System.Drawing.Size(270, 35);
+            this.newArrayButton.Location = new System.Drawing.Point(15, 400);
+            this.newArrayButton.Size = new System.Drawing.Size(180, 35);
             this.newArrayButton.BackColor = System.Drawing.Color.LightBlue;
+            this.newArrayButton.Font = new System.Drawing.Font("Arial", 9, System.Drawing.FontStyle.Bold);
             this.newArrayButton.Click += new EventHandler(this.NewArrayButton_Click);
 
-            // Статусная метка
-            this.statusLabel = new Label();
-            this.statusLabel.Text = "Готов";
-            this.statusLabel.Location = new System.Drawing.Point(10, 180);
-            this.statusLabel.Size = new System.Drawing.Size(300, 25);
-            this.statusLabel.Font = new System.Drawing.Font("Arial", 10, System.Drawing.FontStyle.Bold);
-
-            // Группа легенды
-            GroupBox legendBox = new GroupBox();
-            legendBox.Location = new System.Drawing.Point(990, 10);
-            legendBox.Size = new System.Drawing.Size(150, 165);
-            legendBox.Text = "Легенда";
-
-            AddLegendItem(legendBox, System.Drawing.Color.SteelBlue, "Обычный элемент", 0);
-            AddLegendItem(legendBox, System.Drawing.Color.Orange, "Сравниваемый", 1);
-            AddLegendItem(legendBox, System.Drawing.Color.Red, "Перемещаемый", 2);
-            AddLegendItem(legendBox, System.Drawing.Color.LightGreen, "Сортированный", 3);
-            AddLegendItem(legendBox, System.Drawing.Color.Purple, "Опорный элемент", 4);
-
-            // Добавление всех контролов на панель управления
-            this.controlPanel.Controls.AddRange(new System.Windows.Forms.Control[] {
-                algoLabel, this.algorithmCombo, sizeLabel, sizeLabel1, this.sizeNumeric,
-                speedLabel, this.speedTrackBar, this.startButton, this.resetButton,
-                this.pauseButton, this.newArrayButton, this.statusLabel, legendBox
+            // Добавление контролов на панель
+            this.sidePanel.Controls.AddRange(new System.Windows.Forms.Control[] {
+                this.startButton,
+                this.pauseButton,
+                this.resetButton,
+                speedLabel,
+                this.speedTrackBar,
+                algoLabel,
+                this.algorithmCombo,
+                sizeLabel1,
+                sizeLabel,
+                this.sizeNumeric,
+                this.newArrayButton
             });
 
-            // Добавление панелей на форму
-            this.Controls.Add(this.externalPanel);
             this.Controls.Add(this.canvas);
-            this.Controls.Add(this.controlPanel);
+            this.Controls.Add(this.sidePanel);
 
             this.components = new System.ComponentModel.Container();
         }
 
-        private void AddLegendItem(GroupBox box, System.Drawing.Color color, string text, int index)
-        {
-            Panel colorPanel = new Panel();
-            colorPanel.Location = new System.Drawing.Point(10, index * 25 + 25);
-            colorPanel.Size = new System.Drawing.Size(20, 20);
-            colorPanel.BackColor = color;
-            colorPanel.BorderStyle = BorderStyle.FixedSingle;
-
-            Label label = new Label();
-            label.Text = text;
-            label.Location = new System.Drawing.Point(35, index * 25 + 25);
-            label.Size = new System.Drawing.Size(120, 20);
-            label.Font = new System.Drawing.Font("Arial", 8);
-
-            box.Controls.Add(colorPanel);
-            box.Controls.Add(label);
-        }
-
-        // Объявления полей (добавлены externalPanel, pauseButton, newArrayButton)
+        private Panel sidePanel;
         private Panel canvas;
-        private Panel externalPanel;
-        private Panel controlPanel;
         private ComboBox algorithmCombo;
         private Button startButton;
         private Button resetButton;
@@ -198,6 +168,5 @@
         private Button newArrayButton;
         private TrackBar speedTrackBar;
         private NumericUpDown sizeNumeric;
-        private Label statusLabel;
     }
 }

@@ -10,64 +10,114 @@ namespace РГР
     public partial class MainForm : Form
     {
         private bool[] isSorted;
-
         private int[] array;
-        private int[] originalArray;              // копия исходного массива для сброса
-        private int arraySize = 30;
+        private int[] originalArray;
+        private int arraySize = 15;
         private int maxValue = 100;
-        private const int externalElementWidth = 40;
         private bool isSorting = false;
         private bool isPaused = false;
         private CancellationTokenSource cancellationTokenSource;
 
-        // Для паузы используется простой флаг и цикл ожидания в Delay()
-        private readonly object pauseLock = new object();
-
-        // Цвета для отображения
-        private Color defaultColor = Color.SteelBlue;
-        private Color comparingColor = Color.Orange;
-        private Color swappingColor = Color.Red;
+        // Цвета для отображения (голубой)
+        private Color defaultColor = Color.LightSkyBlue;
         private Color sortedColor = Color.LightGreen;
-        private Color pivotColor = Color.Purple;
 
         // Для отображения элементов вне массива
         private int? externalElement1 = null;
         private int? externalElement2 = null;
         private int? externalElementIndex1 = null;
         private int? externalElementIndex2 = null;
-        private int sortedCount = 0;
+        private string comparisonSign = "";
+
+        // Для анимации полета
+        private float flyX1 = 0, flyY1 = 0;
+        private float flyX2 = 0, flyY2 = 0;
+        private bool isFlying1 = false;
+        private bool isFlying2 = false;
+        private int flyingValue1 = 0;
+        private int flyingValue2 = 0;
+        private int startX1, startY1, startX2, startY2;
+        private int targetX1, targetY1, targetX2, targetY2;
+        private const int verticalSteps = 10;
+        private int currentStep = 0;
 
         public MainForm()
         {
             InitializeComponent();
             this.Resize += MainForm_Resize;
-            // Включаем двойную буферизацию для устранения мерцания
+            this.Paint += MainForm_Paint;
+
             typeof(Panel).GetProperty("DoubleBuffered",
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                 ?.SetValue(canvas, true, null);
-            typeof(Panel).GetProperty("DoubleBuffered",
-                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
-                ?.SetValue(externalPanel, true, null);
 
             GenerateArray();
             originalArray = array.ToArray();
         }
 
+        private void MainForm_Paint(object sender, PaintEventArgs e)
+        {
+            DrawComparisonPanel(e.Graphics);
+            DrawFlyingElements(e.Graphics);
+        }
+
+        private void DrawFlyingElements(Graphics g)
+        {
+            int squareSize = 35;
+
+            if (isFlying1)
+            {
+                float x = flyX1;
+                float y = flyY1;
+
+                using (Brush brush = new SolidBrush(defaultColor))
+                {
+                    g.FillRectangle(brush, x, y, squareSize, squareSize);
+                }
+                g.DrawRectangle(Pens.Black, x, y, squareSize, squareSize);
+                using (Font font = new Font("Arial", 9, FontStyle.Bold))
+                {
+                    string valueText = flyingValue1.ToString();
+                    SizeF textSize = g.MeasureString(valueText, font);
+                    float textX = x + (squareSize - textSize.Width) / 2;
+                    float textY = y + (squareSize - textSize.Height) / 2;
+                    g.DrawString(valueText, font, Brushes.Black, textX, textY);
+                }
+            }
+
+            if (isFlying2)
+            {
+                float x = flyX2;
+                float y = flyY2;
+
+                using (Brush brush = new SolidBrush(defaultColor))
+                {
+                    g.FillRectangle(brush, x, y, squareSize, squareSize);
+                }
+                g.DrawRectangle(Pens.Black, x, y, squareSize, squareSize);
+                using (Font font = new Font("Arial", 9, FontStyle.Bold))
+                {
+                    string valueText = flyingValue2.ToString();
+                    SizeF textSize = g.MeasureString(valueText, font);
+                    float textX = x + (squareSize - textSize.Width) / 2;
+                    float textY = y + (squareSize - textSize.Height) / 2;
+                    g.DrawString(valueText, font, Brushes.Black, textX, textY);
+                }
+            }
+        }
+
         private void MainForm_Resize(object sender, EventArgs e)
         {
-            if (canvas != null && externalPanel != null && controlPanel != null)
+            if (canvas != null && sidePanel != null)
             {
                 int margin = 10;
-                externalPanel.Left = margin;
-                externalPanel.Top = margin;
-                externalPanel.Height = this.ClientSize.Height - controlPanel.Height - 3 * margin;
-                canvas.Left = externalPanel.Right + margin;
-                canvas.Top = margin;
-                canvas.Width = this.ClientSize.Width - canvas.Left - margin;
-                canvas.Height = externalPanel.Height;
-                controlPanel.Top = canvas.Bottom + margin;
-                controlPanel.Left = margin;
-                controlPanel.Width = this.ClientSize.Width - 2 * margin;
+                sidePanel.Left = this.ClientSize.Width - sidePanel.Width - margin;
+                sidePanel.Height = this.ClientSize.Height - 2 * margin;
+
+                int canvasWidth = this.ClientSize.Width - sidePanel.Width - 3 * margin;
+                canvas.Width = canvasWidth;
+                canvas.Left = margin;
+                canvas.Top = 200;
             }
         }
 
@@ -88,10 +138,239 @@ namespace РГР
             externalElement2 = null;
             externalElementIndex1 = null;
             externalElementIndex2 = null;
-            sortedCount = 0;
+            comparisonSign = "";
+            isFlying1 = false;
+            isFlying2 = false;
 
             canvas.Invalidate();
-            externalPanel.Invalidate();
+        }
+
+        private void GetElementScreenPosition(int index, out int x, out int y)
+        {
+            int squareSize = 35;
+            int spacing = 3;
+
+            int totalWidth = array.Length * (squareSize + spacing) - spacing;
+            int startX = canvas.Left + Math.Max(10, (canvas.Width - totalWidth) / 2);
+            int startY = canvas.Top + (canvas.Height - squareSize) / 2;
+
+            x = startX + index * (squareSize + spacing);
+            y = startY;
+        }
+
+        private void GetComparisonTargetPosition(int index1, int index2, out int x1, out int y1, out int x2, out int y2)
+        {
+            int squareSize = 35;
+
+            GetElementScreenPosition(index1, out int elementX1, out int elementY1);
+            GetElementScreenPosition(index2, out int elementX2, out int elementY2);
+
+            int distance = Math.Abs(elementX2 - elementX1);
+            int offset1, offset2;
+
+            if (distance > 180)
+            {
+                offset1 = 60;
+                offset2 = 60;
+            }
+            else if (distance > 100)
+            {
+                offset1 = 50;
+                offset2 = 50;
+            }
+            else
+            {
+                offset1 = 40;
+                offset2 = 40;
+            }
+
+            x1 = elementX1 - offset1;
+            x2 = elementX2 + offset2;
+            y1 = elementY1 - 70;
+            y2 = elementY2 - 70;
+        }
+
+        private async Task AnimateFlyToComparison(int index1, int index2)
+        {
+            GetElementScreenPosition(index1, out startX1, out startY1);
+            GetElementScreenPosition(index2, out startX2, out startY2);
+            GetComparisonTargetPosition(index1, index2, out targetX1, out targetY1, out targetX2, out targetY2);
+
+            flyingValue1 = array[index1];
+            flyingValue2 = array[index2];
+            isFlying1 = true;
+            isFlying2 = true;
+
+            for (currentStep = 0; currentStep <= verticalSteps; currentStep++)
+            {
+                float t = (float)currentStep / verticalSteps;
+                float easeT = 1 - (float)Math.Pow(1 - t, 2);
+
+                flyX1 = startX1 + (targetX1 - startX1) * easeT;
+                flyY1 = startY1 + (targetY1 - startY1) * easeT;
+                flyX2 = startX2 + (targetX2 - startX2) * easeT;
+                flyY2 = startY2 + (targetY2 - startY2) * easeT;
+
+                canvas.Invalidate();
+                this.Invalidate();
+                await Task.Delay(8);
+            }
+
+            isFlying1 = false;
+            isFlying2 = false;
+
+            externalElement1 = array[index1];
+            externalElement2 = array[index2];
+            externalElementIndex1 = index1;
+            externalElementIndex2 = index2;
+
+            canvas.Invalidate();
+            this.Invalidate();
+        }
+
+        private async Task AnimateSingleFlyToComparison(int index)
+        {
+            GetElementScreenPosition(index, out startX1, out startY1);
+            targetX1 = startX1;
+            targetY1 = startY1 - 70;
+
+            flyingValue1 = array[index];
+            isFlying1 = true;
+
+            for (currentStep = 0; currentStep <= verticalSteps; currentStep++)
+            {
+                float t = (float)currentStep / verticalSteps;
+                float easeT = 1 - (float)Math.Pow(1 - t, 2);
+
+                flyX1 = startX1 + (targetX1 - startX1) * easeT;
+                flyY1 = startY1 + (targetY1 - startY1) * easeT;
+
+                canvas.Invalidate();
+                this.Invalidate();
+                await Task.Delay(8);
+            }
+
+            isFlying1 = false;
+            externalElement1 = array[index];
+            externalElementIndex1 = index;
+            externalElement2 = null;
+            externalElementIndex2 = null;
+
+            canvas.Invalidate();
+            this.Invalidate();
+        }
+
+        private async Task AnimateFlyBack()
+        {
+            if (!externalElement1.HasValue && !externalElement2.HasValue) return;
+
+            // Сохраняем значения перед анимацией
+            int? savedIndex1 = externalElementIndex1;
+            int? savedIndex2 = externalElementIndex2;
+            int? savedValue1 = externalElement1;
+            int? savedValue2 = externalElement2;
+
+            if (savedIndex1.HasValue && savedIndex2.HasValue)
+            {
+                GetComparisonTargetPosition(savedIndex1.Value, savedIndex2.Value, out startX1, out startY1, out startX2, out startY2);
+                GetElementScreenPosition(savedIndex1.Value, out targetX1, out targetY1);
+                GetElementScreenPosition(savedIndex2.Value, out targetX2, out targetY2);
+                flyingValue1 = savedValue1.Value;
+                flyingValue2 = savedValue2.Value;
+                isFlying1 = true;
+                isFlying2 = true;
+            }
+            else if (savedIndex1.HasValue)
+            {
+                startX1 = targetX1;
+                startY1 = targetY1 - 70;
+                GetElementScreenPosition(savedIndex1.Value, out targetX1, out targetY1);
+                flyingValue1 = savedValue1.Value;
+                isFlying1 = true;
+                isFlying2 = false;
+            }
+            else
+            {
+                return;
+            }
+
+            // Очищаем внешние элементы, но сохраняем индексы для анимации
+            externalElement1 = null;
+            externalElement2 = null;
+            comparisonSign = "";
+            canvas.Invalidate();
+            this.Invalidate();
+
+            for (currentStep = 0; currentStep <= verticalSteps; currentStep++)
+            {
+                float t = (float)currentStep / verticalSteps;
+                float easeT = t;
+
+                if (isFlying1)
+                {
+                    flyX1 = startX1 + (targetX1 - startX1) * easeT;
+                    flyY1 = startY1 + (targetY1 - startY1) * easeT;
+                }
+                if (isFlying2)
+                {
+                    flyX2 = startX2 + (targetX2 - startX2) * easeT;
+                    flyY2 = startY2 + (targetY2 - startY2) * easeT;
+                }
+
+                canvas.Invalidate();
+                this.Invalidate();
+                await Task.Delay(8);
+            }
+
+            isFlying1 = false;
+            isFlying2 = false;
+            externalElementIndex1 = null;
+            externalElementIndex2 = null;
+
+            canvas.Invalidate();
+            this.Invalidate();
+        }
+
+        private async Task AnimateSingleFlyBack()
+        {
+            if (!externalElement1.HasValue) return;
+
+            int? savedIndex = externalElementIndex1;
+            int? savedValue = externalElement1;
+
+            if (savedIndex.HasValue)
+            {
+                startX1 = targetX1;
+                startY1 = targetY1 - 70;
+                GetElementScreenPosition(savedIndex.Value, out targetX1, out targetY1);
+                flyingValue1 = savedValue.Value;
+            }
+
+            externalElement1 = null;
+            comparisonSign = "";
+            isFlying1 = true;
+
+            for (currentStep = 0; currentStep <= verticalSteps; currentStep++)
+            {
+                float t = (float)currentStep / verticalSteps;
+                float easeT = t;
+
+                if (isFlying1)
+                {
+                    flyX1 = startX1 + (targetX1 - startX1) * easeT;
+                    flyY1 = startY1 + (targetY1 - startY1) * easeT;
+                }
+
+                canvas.Invalidate();
+                this.Invalidate();
+                await Task.Delay(8);
+            }
+
+            isFlying1 = false;
+            externalElementIndex1 = null;
+
+            canvas.Invalidate();
+            this.Invalidate();
         }
 
         private void Canvas_Paint(object sender, PaintEventArgs e)
@@ -99,115 +378,92 @@ namespace РГР
             if (array == null || array.Length == 0) return;
 
             Graphics g = e.Graphics;
-            int barWidth = canvas.Width / array.Length - 2;
-            if (barWidth < 1) barWidth = 1;
+
+            int squareSize = 35;
+            int spacing = 3;
+
+            int totalWidth = array.Length * (squareSize + spacing) - spacing;
+            int startX = Math.Max(10, (canvas.Width - totalWidth) / 2);
+            int startY = (canvas.Height - squareSize) / 2;
 
             for (int i = 0; i < array.Length; i++)
             {
-                // Если элемент временно удалён для отображения снаружи – не рисуем его
-                if (externalElementIndex1 == i || externalElementIndex2 == i)
-                    continue;
+                int x = startX + i * (squareSize + spacing);
+                int y = startY;
 
-                int barHeight = (int)((double)array[i] / maxValue * (canvas.Height - 50));
-                int x = i * (barWidth + 2) + 2;
-                int y = canvas.Height - barHeight - 20;
-
-                Color barColor = isSorted[i] ? sortedColor : defaultColor;
-
-                using (Brush brush = new SolidBrush(barColor))
+                if ((externalElementIndex1 == i && isFlying1) || (externalElementIndex2 == i && isFlying2))
                 {
-                    g.FillRectangle(brush, x, y, barWidth, barHeight);
+                    continue;
                 }
 
-                g.DrawRectangle(Pens.Black, x, y, barWidth, barHeight);
+                Color backColor = isSorted[i] ? sortedColor : defaultColor;
 
-                using (Font font = new Font("Arial", 8))
+                using (Brush brush = new SolidBrush(backColor))
+                {
+                    g.FillRectangle(brush, x, y, squareSize, squareSize);
+                }
+                g.DrawRectangle(Pens.Black, x, y, squareSize, squareSize);
+
+                using (Font font = new Font("Arial", 9, FontStyle.Bold))
                 {
                     string valueText = array[i].ToString();
                     SizeF textSize = g.MeasureString(valueText, font);
-                    g.DrawString(valueText, font, Brushes.Black,
-                        x + barWidth / 2 - textSize.Width / 2, y - 15);
+                    float textX = x + (squareSize - textSize.Width) / 2;
+                    float textY = y + (squareSize - textSize.Height) / 2;
+                    g.DrawString(valueText, font, Brushes.Black, textX, textY);
                 }
             }
         }
 
-        private void ExternalPanel_Paint(object sender, PaintEventArgs e)
+        private void DrawComparisonPanel(Graphics g)
         {
-            Graphics g = e.Graphics;
-            g.Clear(externalPanel.BackColor);
-
-            int panelWidth = externalPanel.Width; // Объявляем переменную здесь
-
-            if (externalElement1.HasValue && externalElement2.HasValue)
+            if (externalElement1.HasValue && externalElement2.HasValue && !isFlying1 && !isFlying2 && externalElementIndex1.HasValue && externalElementIndex2.HasValue)
             {
-                // Рисуем оба элемента параллельно
-                int elementWidth = Math.Min(60, panelWidth / 3); // Адаптивная ширина
-                int spacing = Math.Min(20, panelWidth / 10); // Адаптивный отступ
+                int squareSize = 35;
 
-                // Вычисляем позиции так, чтобы элементы были по центру
-                int totalWidth = elementWidth * 2 + spacing;
-                int startX = Math.Max(0, (panelWidth - totalWidth) / 2);
-
-                // Проверяем, чтобы элементы не выходили за границы
-                if (startX + totalWidth > panelWidth)
-                {
-                    startX = 10; // Отступ от левого края
-                    elementWidth = (panelWidth - 30) / 2; // Подгоняем ширину
-                }
+                GetComparisonTargetPosition(externalElementIndex1.Value, externalElementIndex2.Value, out int x1, out int y1, out int x2, out int y2);
 
                 // Рисуем первый элемент
-                DrawExternalElement(g, externalElement1.Value, startX, 20, comparingColor, "Эл. 1");
+                using (Brush brush = new SolidBrush(defaultColor))
+                {
+                    g.FillRectangle(brush, x1, y1, squareSize, squareSize);
+                }
+                g.DrawRectangle(Pens.Black, x1, y1, squareSize, squareSize);
+                using (Font font = new Font("Arial", 10, FontStyle.Bold))
+                {
+                    string valueText = externalElement1.Value.ToString();
+                    SizeF textSize = g.MeasureString(valueText, font);
+                    float textX = x1 + (squareSize - textSize.Width) / 2;
+                    float textY = y1 + (squareSize - textSize.Height) / 2;
+                    g.DrawString(valueText, font, Brushes.Black, textX, textY);
+                }
+
+                // Рисуем знак сравнения между элементами
+                int centerX = (x1 + x2) / 2 + squareSize / 2;
+                int centerY = y1 + squareSize / 2;
+
+                using (Font font = new Font("Arial", 18, FontStyle.Bold))
+                {
+                    SizeF signSize = g.MeasureString(comparisonSign, font);
+                    float signX = centerX - signSize.Width / 2;
+                    float signY = centerY - signSize.Height / 2;
+                    g.DrawString(comparisonSign, font, Brushes.DarkRed, signX, signY);
+                }
+
                 // Рисуем второй элемент
-                DrawExternalElement(g, externalElement2.Value, startX + elementWidth + spacing, 20, swappingColor, "Эл.2");
-            }
-            else if (externalElement1.HasValue)
-            {
-                // Если только один элемент
-                int elementWidth = Math.Min(60, panelWidth / 2);
-                int startX = Math.Max(0, (externalPanel.Width - elementWidth) / 2);
-                DrawExternalElement(g, externalElement1.Value, startX, 20, comparingColor, "Элемент");
-            }
-        }
-
-        private void DrawExternalElement(Graphics g, int value, int x, int y, Color color, string label)
-        {
-            // Используем такую же высоту, как в основном массиве
-            int maxBarHeight = canvas.Height - 50;
-            int barHeight = (int)((double)value / maxValue * maxBarHeight);
-            if (barHeight < 1) barHeight = 1;
-
-            int barWidth = Math.Min(40, externalPanel.Width / 3); // Адаптивная ширина
-
-            // Проверяем, чтобы элемент не выходил за правую границу
-            if (x + barWidth > externalPanel.Width)
-            {
-                x = externalPanel.Width - barWidth - 5;
-            }
-
-            // Рисуем столбец
-            using (Brush brush = new SolidBrush(color))
-            {
-                g.FillRectangle(brush, x, y + maxBarHeight - barHeight, barWidth, barHeight);
-            }
-            g.DrawRectangle(Pens.Black, x, y + maxBarHeight - barHeight, barWidth, barHeight);
-
-            // Рисуем значение над столбцом
-            using (Font font = new Font("Arial", 10, FontStyle.Bold))
-            {
-                string valueText = value.ToString();
-                SizeF textSize = g.MeasureString(valueText, font);
-                float textX = x + barWidth / 2 - textSize.Width / 2;
-                g.DrawString(valueText, font, Brushes.Black,
-                    textX, y + maxBarHeight - barHeight - 15);
-            }
-
-            // Рисуем подпись под столбцом
-            using (Font font = new Font("Arial", 8))
-            {
-                SizeF textSize = g.MeasureString(label, font);
-                float textX = x + barWidth / 2 - textSize.Width / 2;
-                g.DrawString(label, font, Brushes.Black,
-                    textX, y + maxBarHeight + 5);
+                using (Brush brush = new SolidBrush(defaultColor))
+                {
+                    g.FillRectangle(brush, x2, y2, squareSize, squareSize);
+                }
+                g.DrawRectangle(Pens.Black, x2, y2, squareSize, squareSize);
+                using (Font font = new Font("Arial", 10, FontStyle.Bold))
+                {
+                    string valueText = externalElement2.Value.ToString();
+                    SizeF textSize = g.MeasureString(valueText, font);
+                    float textX = x2 + (squareSize - textSize.Width) / 2;
+                    float textY = y2 + (squareSize - textSize.Height) / 2;
+                    g.DrawString(valueText, font, Brushes.Black, textX, textY);
+                }
             }
         }
 
@@ -215,7 +471,6 @@ namespace РГР
         {
             if (isSorting) return;
 
-            // Сохраняем исходное состояние массива
             originalArray = array.ToArray();
             isSorting = true;
             isPaused = false;
@@ -224,15 +479,14 @@ namespace РГР
             cancellationTokenSource = new CancellationTokenSource();
             var token = cancellationTokenSource.Token;
 
-            // Сброс внешних элементов
             externalElement1 = null;
             externalElement2 = null;
             externalElementIndex1 = null;
             externalElementIndex2 = null;
-            sortedCount = 0;
+            comparisonSign = "";
             for (int i = 0; i < array.Length; i++) isSorted[i] = false;
             canvas.Invalidate();
-            externalPanel.Invalidate();
+            this.Invalidate();
 
             try
             {
@@ -245,13 +499,11 @@ namespace РГР
                     case 4: await QuickSort(0, array.Length - 1, token); break;
                     case 5: await TreeSort(token); break;
                 }
-                sortedCount = array.Length;
+                for (int i = 0; i < array.Length; i++) isSorted[i] = true;
                 canvas.Invalidate();
-                statusLabel.Text = "Сортировка завершена!";
             }
             catch (OperationCanceledException)
             {
-                statusLabel.Text = "Сортировка прервана";
             }
             finally
             {
@@ -261,22 +513,19 @@ namespace РГР
                 externalElement1 = null;
                 externalElement2 = null;
                 canvas.Invalidate();
-                externalPanel.Invalidate();
+                this.Invalidate();
             }
         }
 
         private void PauseButton_Click(object sender, EventArgs e)
         {
             if (!isSorting) return;
-
             isPaused = !isPaused;
             pauseButton.Text = isPaused ? "Продолжить" : "Пауза";
-            statusLabel.Text = isPaused ? "Пауза" : "Сортировка...";
         }
 
         private void ResetButton_Click(object sender, EventArgs e)
         {
-            // Если идёт сортировка – отменяем её
             if (isSorting)
             {
                 cancellationTokenSource?.Cancel();
@@ -284,24 +533,20 @@ namespace РГР
                 isPaused = false;
             }
 
-            // Восстанавливаем исходный массив, если он есть
             if (originalArray != null && originalArray.Length == array.Length)
             {
                 Array.Copy(originalArray, array, array.Length);
                 for (int i = 0; i < array.Length; i++) isSorted[i] = false;
-                sortedCount = 0;
                 externalElement1 = externalElement2 = null;
                 externalElementIndex1 = externalElementIndex2 = null;
+                comparisonSign = "";
                 canvas.Invalidate();
-                externalPanel.Invalidate();
-                statusLabel.Text = "Сброшено к исходному массиву";
+                this.Invalidate();
             }
             else
             {
-                // Если по какой-то причине оригинал отсутствует – генерируем новый
                 GenerateArray();
                 originalArray = array.ToArray();
-                statusLabel.Text = "Новый массив сгенерирован";
             }
 
             SetControlsState(false, false);
@@ -310,10 +555,8 @@ namespace РГР
         private void NewArrayButton_Click(object sender, EventArgs e)
         {
             if (isSorting) return;
-
             GenerateArray();
             originalArray = array.ToArray();
-            statusLabel.Text = "Новый массив сгенерирован";
         }
 
         private void SizeNumeric_ValueChanged(object sender, EventArgs e)
@@ -331,16 +574,15 @@ namespace РГР
             sizeNumeric.Enabled = !sorting;
             newArrayButton.Enabled = !sorting;
             startButton.Enabled = !sorting;
-            resetButton.Enabled = true;          // всегда доступна
-            pauseButton.Enabled = sorting;       // только во время сортировки
+            resetButton.Enabled = true;
+            pauseButton.Enabled = sorting;
             speedTrackBar.Enabled = true;
-
             pauseButton.Text = (sorting && paused) ? "Продолжить" : "Пауза";
         }
 
         private async Task Delay(CancellationToken token)
         {
-            int delayMs = speedTrackBar.Value; // значение в мс (1..100)
+            int delayMs = speedTrackBar.Value;
             try
             {
                 await Task.Delay(delayMs, token);
@@ -350,7 +592,6 @@ namespace РГР
                 throw;
             }
 
-            // Ожидание снятия паузы
             while (isPaused && !token.IsCancellationRequested)
             {
                 await Task.Delay(50, token);
@@ -360,27 +601,30 @@ namespace РГР
 
         private async Task ShowComparison(int index1, int index2, CancellationToken token)
         {
-            externalElementIndex1 = index1;
-            externalElementIndex2 = index2;
-            externalElement1 = array[index1];
-            if (index2 >= 0)
-                externalElement2 = array[index2];
-            else
-                externalElement2 = null;
+            await AnimateFlyToComparison(index1, index2);
 
-            canvas.Invalidate();
-            externalPanel.Invalidate();
+            if (index2 >= 0 && index2 < array.Length)
+            {
+                if (array[index1] < array[index2])
+                    comparisonSign = "<";
+                else if (array[index1] > array[index2])
+                    comparisonSign = ">";
+                else
+                    comparisonSign = "=";
+            }
+
+            this.Invalidate();
             await Delay(token);
         }
 
-        private void ClearExternal()
+        private async Task ClearExternal()
         {
-            externalElement1 = null;
-            externalElement2 = null;
-            externalElementIndex1 = null;
-            externalElementIndex2 = null;
-            canvas.Invalidate();
-            externalPanel.Invalidate();
+            await AnimateFlyBack();
+        }
+
+        private async Task ClearSingleExternal()
+        {
+            await AnimateSingleFlyBack();
         }
 
         private async Task Swap(int i, int j, CancellationToken token)
@@ -389,16 +633,14 @@ namespace РГР
             int temp = array[i];
             array[i] = array[j];
             array[j] = temp;
-            ClearExternal();
+            await ClearExternal();
             canvas.Invalidate();
             await Delay(token);
         }
 
-        // -------------------- Алгоритмы сортировки --------------------
+        // -------------------- Пузырьковая сортировка --------------------
         private async Task BubbleSort(CancellationToken token)
         {
-            statusLabel.Text = "Пузырьковая сортировка";
-
             for (int i = 0; i < array.Length - 1; i++)
             {
                 bool swapped = false;
@@ -411,18 +653,17 @@ namespace РГР
                         await Swap(j, j + 1, token);
                         swapped = true;
                     }
-                    ClearExternal();
+                    await ClearExternal();
                 }
                 isSorted[array.Length - 1 - i] = true;
                 canvas.Invalidate();
                 if (!swapped) break;
             }
-            for (int i = 0; i < array.Length; i++) isSorted[i] = true;
         }
 
+        // -------------------- Сортировка выбором --------------------
         private async Task SelectionSort(CancellationToken token)
         {
-            statusLabel.Text = "Сортировка выбором";
             for (int i = 0; i < array.Length - 1; i++)
             {
                 token.ThrowIfCancellationRequested();
@@ -432,57 +673,49 @@ namespace РГР
                     await ShowComparison(minIdx, j, token);
                     if (array[j] < array[minIdx])
                         minIdx = j;
-                    ClearExternal();
+                    await ClearExternal();
                 }
                 if (minIdx != i)
+                {
                     await Swap(i, minIdx, token);
+                }
                 isSorted[i] = true;
                 canvas.Invalidate();
             }
-            isSorted[array.Length - 1] = true;
         }
 
+        // -------------------- Сортировка вставками --------------------
         private async Task InsertionSort(CancellationToken token)
         {
-            statusLabel.Text = "Сортировка вставками";
             for (int i = 1; i < array.Length; i++)
             {
                 token.ThrowIfCancellationRequested();
                 int key = array[i];
                 int j = i - 1;
 
-                externalElement1 = key;
-                externalElementIndex1 = i;
-                externalElement2 = null;
-                externalElementIndex2 = null;
-                canvas.Invalidate();
-                externalPanel.Invalidate();
+                await AnimateSingleFlyToComparison(i);
+                this.Invalidate();
                 await Delay(token);
 
                 while (j >= 0 && array[j] > key)
                 {
                     token.ThrowIfCancellationRequested();
-                    // показываем сравнение с элементом j
-                    externalElementIndex2 = j;
-                    externalElement2 = array[j];
-                    canvas.Invalidate();
-                    externalPanel.Invalidate();
-                    await Delay(token);
-
+                    await ShowComparison(j, i, token);
                     array[j + 1] = array[j];
                     canvas.Invalidate();
                     await Delay(token);
+                    await ClearExternal();
                     j--;
                 }
                 array[j + 1] = key;
-                ClearExternal();
+                await ClearSingleExternal();
                 isSorted[i] = true;
                 canvas.Invalidate();
                 await Delay(token);
             }
-            for (int i = 0; i < array.Length; i++) isSorted[i] = true;
         }
 
+        // -------------------- Сортировка слиянием --------------------
         private async Task MergeSort(int left, int right, CancellationToken token)
         {
             if (left < right)
@@ -500,17 +733,17 @@ namespace РГР
             int n2 = right - mid;
             int[] L = new int[n1];
             int[] R = new int[n2];
+
             for (int i = 0; i < n1; i++) L[i] = array[left + i];
             for (int j = 0; j < n2; j++) R[j] = array[mid + 1 + j];
 
             int iIdx = 0, jIdx = 0, k = left;
+
             while (iIdx < n1 && jIdx < n2)
             {
                 token.ThrowIfCancellationRequested();
-                externalElement1 = L[iIdx];
-                externalElement2 = R[jIdx];
-                externalPanel.Invalidate();
-                await Delay(token);
+
+                await ShowComparison(left + iIdx, mid + 1 + jIdx, token);
 
                 if (L[iIdx] <= R[jIdx])
                 {
@@ -522,10 +755,13 @@ namespace РГР
                     array[k] = R[jIdx];
                     jIdx++;
                 }
+
+                await ClearExternal();
                 canvas.Invalidate();
                 await Delay(token);
                 k++;
             }
+
             while (iIdx < n1)
             {
                 token.ThrowIfCancellationRequested();
@@ -534,6 +770,7 @@ namespace РГР
                 canvas.Invalidate();
                 await Delay(token);
             }
+
             while (jIdx < n2)
             {
                 token.ThrowIfCancellationRequested();
@@ -542,11 +779,11 @@ namespace РГР
                 canvas.Invalidate();
                 await Delay(token);
             }
-            ClearExternal();
-            sortedCount = right + 1;
+
             canvas.Invalidate();
         }
 
+        // -------------------- Быстрая сортировка --------------------
         private async Task QuickSort(int low, int high, CancellationToken token)
         {
             if (low < high)
@@ -555,11 +792,6 @@ namespace РГР
                 await QuickSort(low, pi - 1, token);
                 await QuickSort(pi + 1, high, token);
             }
-            else if (low == high)
-            {
-                sortedCount = Math.Max(sortedCount, low + 1);
-                canvas.Invalidate();
-            }
         }
 
         private async Task<int> Partition(int low, int high, CancellationToken token)
@@ -567,10 +799,10 @@ namespace РГР
             int pivot = array[high];
             int i = low - 1;
 
-            externalElement1 = pivot;
-            externalElementIndex1 = high;
-            externalPanel.Invalidate();
+            await AnimateSingleFlyToComparison(high);
+            this.Invalidate();
             await Delay(token);
+            await ClearSingleExternal();
 
             for (int j = low; j < high; j++)
             {
@@ -581,39 +813,34 @@ namespace РГР
                     i++;
                     await Swap(i, j, token);
                 }
-                ClearExternal();
+                await ClearExternal();
             }
             await Swap(i + 1, high, token);
-            ClearExternal();
-            sortedCount = i + 2;
+            await ClearExternal();
             canvas.Invalidate();
             return i + 1;
         }
 
+        // -------------------- Древесная сортировка --------------------
         private async Task TreeSort(CancellationToken token)
         {
-            statusLabel.Text = "Древесная сортировка (построение дерева)";
             TreeNode root = null;
             for (int i = 0; i < array.Length; i++)
             {
                 token.ThrowIfCancellationRequested();
-                externalElement1 = array[i];
-                externalElementIndex1 = i;
-                externalPanel.Invalidate();
-                await Delay(token);
+                await AnimateSingleFlyToComparison(i);
                 root = InsertIntoTree(root, array[i]);
-                ClearExternal();
+                await ClearSingleExternal();
                 await Delay(token);
             }
 
-            statusLabel.Text = "Древесная сортировка (обход дерева)";
             List<int> sortedList = new List<int>();
             await InorderTraversal(root, sortedList, token);
             for (int i = 0; i < sortedList.Count; i++)
             {
                 token.ThrowIfCancellationRequested();
                 array[i] = sortedList[i];
-                sortedCount = i + 1;
+                isSorted[i] = true;
                 canvas.Invalidate();
                 await Delay(token);
             }
