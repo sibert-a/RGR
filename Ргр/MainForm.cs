@@ -19,7 +19,7 @@ namespace РГР
         private bool isPaused = false;
         private CancellationTokenSource cancellationTokenSource;
 
-        // Цвета для отображения (голубой)
+        // Цвета для отображения
         private Color defaultColor = Color.LightSkyBlue;
         private Color sortedColor = Color.LightGreen;
 
@@ -55,7 +55,7 @@ namespace РГР
             this.KeyDown += MainForm_KeyDown;
 
             this.Resize += MainForm_Resize;
-            this.Paint += MainForm_Paint;
+            // Подписка на Paint формы больше не нужна — всё рисуется на canvas
 
             typeof(Panel).GetProperty("DoubleBuffered",
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
@@ -80,57 +80,6 @@ namespace РГР
             {
                 HelpForm helpForm = new HelpForm();
                 helpForm.Show(this);
-            }
-        }
-
-        private void MainForm_Paint(object sender, PaintEventArgs e)
-        {
-            DrawComparisonPanel(e.Graphics);
-            DrawFlyingElements(e.Graphics);
-        }
-
-        private void DrawFlyingElements(Graphics g)
-        {
-            int squareSize = 35;
-
-            if (isFlying1)
-            {
-                float x = flyX1;
-                float y = flyY1;
-
-                using (Brush brush = new SolidBrush(defaultColor))
-                {
-                    g.FillRectangle(brush, x, y, squareSize, squareSize);
-                }
-                g.DrawRectangle(Pens.Black, x, y, squareSize, squareSize);
-                using (Font font = new Font("Arial", 9, FontStyle.Bold))
-                {
-                    string valueText = flyingValue1.ToString();
-                    SizeF textSize = g.MeasureString(valueText, font);
-                    float textX = x + (squareSize - textSize.Width) / 2;
-                    float textY = y + (squareSize - textSize.Height) / 2;
-                    g.DrawString(valueText, font, Brushes.Black, textX, textY);
-                }
-            }
-
-            if (isFlying2)
-            {
-                float x = flyX2;
-                float y = flyY2;
-
-                using (Brush brush = new SolidBrush(defaultColor))
-                {
-                    g.FillRectangle(brush, x, y, squareSize, squareSize);
-                }
-                g.DrawRectangle(Pens.Black, x, y, squareSize, squareSize);
-                using (Font font = new Font("Arial", 9, FontStyle.Bold))
-                {
-                    string valueText = flyingValue2.ToString();
-                    SizeF textSize = g.MeasureString(valueText, font);
-                    float textX = x + (squareSize - textSize.Width) / 2;
-                    float textY = y + (squareSize - textSize.Height) / 2;
-                    g.DrawString(valueText, font, Brushes.Black, textX, textY);
-                }
             }
         }
 
@@ -173,240 +122,9 @@ namespace РГР
             canvas.Invalidate();
         }
 
+        // Координаты относительно панели canvas (без учёта её расположения на форме)
         private void GetElementScreenPosition(int index, out int x, out int y)
         {
-            int squareSize = 35;
-            int spacing = 3;
-
-            int totalWidth = array.Length * (squareSize + spacing) - spacing;
-            int startX = canvas.Left + Math.Max(10, (canvas.Width - totalWidth) / 2);
-            int startY = canvas.Top + (canvas.Height - squareSize) / 2;
-
-            x = startX + index * (squareSize + spacing);
-            y = startY;
-        }
-
-        private void GetComparisonTargetPosition(int index1, int index2, out int x1, out int y1, out int x2, out int y2)
-        {
-            int squareSize = 35;
-
-            GetElementScreenPosition(index1, out int elementX1, out int elementY1);
-            GetElementScreenPosition(index2, out int elementX2, out int elementY2);
-
-            int distance = Math.Abs(elementX2 - elementX1);
-            int offset1, offset2;
-
-            if (distance > 180)
-            {
-                offset1 = 60;
-                offset2 = 60;
-            }
-            else if (distance > 100)
-            {
-                offset1 = 50;
-                offset2 = 50;
-            }
-            else
-            {
-                offset1 = 40;
-                offset2 = 40;
-            }
-
-            x1 = elementX1 - offset1;
-            x2 = elementX2 + offset2;
-            y1 = elementY1 - 70;
-            y2 = elementY2 - 70;
-        }
-
-        private async Task AnimateFlyToComparison(int index1, int index2)
-        {
-            GetElementScreenPosition(index1, out startX1, out startY1);
-            GetElementScreenPosition(index2, out startX2, out startY2);
-            GetComparisonTargetPosition(index1, index2, out targetX1, out targetY1, out targetX2, out targetY2);
-
-            flyingValue1 = array[index1];
-            flyingValue2 = array[index2];
-            isFlying1 = true;
-            isFlying2 = true;
-
-            for (currentStep = 0; currentStep <= verticalSteps; currentStep++)
-            {
-                float t = (float)currentStep / verticalSteps;
-                float easeT = 1 - (float)Math.Pow(1 - t, 2);
-
-                flyX1 = startX1 + (targetX1 - startX1) * easeT;
-                flyY1 = startY1 + (targetY1 - startY1) * easeT;
-                flyX2 = startX2 + (targetX2 - startX2) * easeT;
-                flyY2 = startY2 + (targetY2 - startY2) * easeT;
-
-                canvas.Invalidate();
-                this.Invalidate();
-                await Task.Delay(8);
-            }
-
-            isFlying1 = false;
-            isFlying2 = false;
-
-            externalElement1 = array[index1];
-            externalElement2 = array[index2];
-            externalElementIndex1 = index1;
-            externalElementIndex2 = index2;
-
-            canvas.Invalidate();
-            this.Invalidate();
-        }
-
-        private async Task AnimateSingleFlyToComparison(int index)
-        {
-            GetElementScreenPosition(index, out startX1, out startY1);
-            targetX1 = startX1;
-            targetY1 = startY1 - 70;
-
-            flyingValue1 = array[index];
-            isFlying1 = true;
-
-            for (currentStep = 0; currentStep <= verticalSteps; currentStep++)
-            {
-                float t = (float)currentStep / verticalSteps;
-                float easeT = 1 - (float)Math.Pow(1 - t, 2);
-
-                flyX1 = startX1 + (targetX1 - startX1) * easeT;
-                flyY1 = startY1 + (targetY1 - startY1) * easeT;
-
-                canvas.Invalidate();
-                this.Invalidate();
-                await Task.Delay(8);
-            }
-
-            isFlying1 = false;
-            externalElement1 = array[index];
-            externalElementIndex1 = index;
-            externalElement2 = null;
-            externalElementIndex2 = null;
-
-            canvas.Invalidate();
-            this.Invalidate();
-        }
-
-        private async Task AnimateFlyBack()
-        {
-            if (!externalElement1.HasValue && !externalElement2.HasValue) return;
-
-            // Сохраняем значения перед анимацией
-            int? savedIndex1 = externalElementIndex1;
-            int? savedIndex2 = externalElementIndex2;
-            int? savedValue1 = externalElement1;
-            int? savedValue2 = externalElement2;
-
-            if (savedIndex1.HasValue && savedIndex2.HasValue)
-            {
-                GetComparisonTargetPosition(savedIndex1.Value, savedIndex2.Value, out startX1, out startY1, out startX2, out startY2);
-                GetElementScreenPosition(savedIndex1.Value, out targetX1, out targetY1);
-                GetElementScreenPosition(savedIndex2.Value, out targetX2, out targetY2);
-                flyingValue1 = savedValue1.Value;
-                flyingValue2 = savedValue2.Value;
-                isFlying1 = true;
-                isFlying2 = true;
-            }
-            else if (savedIndex1.HasValue)
-            {
-                startX1 = targetX1;
-                startY1 = targetY1 - 70;
-                GetElementScreenPosition(savedIndex1.Value, out targetX1, out targetY1);
-                flyingValue1 = savedValue1.Value;
-                isFlying1 = true;
-                isFlying2 = false;
-            }
-            else
-            {
-                return;
-            }
-
-            // Очищаем внешние элементы, но сохраняем индексы для анимации
-            externalElement1 = null;
-            externalElement2 = null;
-            comparisonSign = "";
-            canvas.Invalidate();
-            this.Invalidate();
-
-            for (currentStep = 0; currentStep <= verticalSteps; currentStep++)
-            {
-                float t = (float)currentStep / verticalSteps;
-                float easeT = t;
-
-                if (isFlying1)
-                {
-                    flyX1 = startX1 + (targetX1 - startX1) * easeT;
-                    flyY1 = startY1 + (targetY1 - startY1) * easeT;
-                }
-                if (isFlying2)
-                {
-                    flyX2 = startX2 + (targetX2 - startX2) * easeT;
-                    flyY2 = startY2 + (targetY2 - startY2) * easeT;
-                }
-
-                canvas.Invalidate();
-                this.Invalidate();
-                await Task.Delay(8);
-            }
-
-            isFlying1 = false;
-            isFlying2 = false;
-            externalElementIndex1 = null;
-            externalElementIndex2 = null;
-
-            canvas.Invalidate();
-            this.Invalidate();
-        }
-
-        private async Task AnimateSingleFlyBack()
-        {
-            if (!externalElement1.HasValue) return;
-
-            int? savedIndex = externalElementIndex1;
-            int? savedValue = externalElement1;
-
-            if (savedIndex.HasValue)
-            {
-                startX1 = targetX1;
-                startY1 = targetY1 - 70;
-                GetElementScreenPosition(savedIndex.Value, out targetX1, out targetY1);
-                flyingValue1 = savedValue.Value;
-            }
-
-            externalElement1 = null;
-            comparisonSign = "";
-            isFlying1 = true;
-
-            for (currentStep = 0; currentStep <= verticalSteps; currentStep++)
-            {
-                float t = (float)currentStep / verticalSteps;
-                float easeT = t;
-
-                if (isFlying1)
-                {
-                    flyX1 = startX1 + (targetX1 - startX1) * easeT;
-                    flyY1 = startY1 + (targetY1 - startY1) * easeT;
-                }
-
-                canvas.Invalidate();
-                this.Invalidate();
-                await Task.Delay(8);
-            }
-
-            isFlying1 = false;
-            externalElementIndex1 = null;
-
-            canvas.Invalidate();
-            this.Invalidate();
-        }
-
-        private void Canvas_Paint(object sender, PaintEventArgs e)
-        {
-            if (array == null || array.Length == 0) return;
-
-            Graphics g = e.Graphics;
-
             int squareSize = 35;
             int spacing = 3;
 
@@ -414,18 +132,260 @@ namespace РГР
             int startX = Math.Max(10, (canvas.Width - totalWidth) / 2);
             int startY = (canvas.Height - squareSize) / 2;
 
+            x = startX + index * (squareSize + spacing);
+            y = startY;
+        }
+
+        // Координаты для панели сравнения (тоже локальные для canvas)
+        private void GetComparisonTargetPosition(int index1, int index2, out int x1, out int y1, out int x2, out int y2)
+        {
+            int squareSize = 35;
+            int verticalOffset = 70; // на сколько поднимаем вверх
+
+            GetElementScreenPosition(index1, out int elemX1, out int elemY1);
+            GetElementScreenPosition(index2, out int elemX2, out int elemY2);
+
+            // Центр между двумя прямоугольниками (середина отрезка, соединяющего их центры)
+            float centerX1 = elemX1 + squareSize / 2f;
+            float centerX2 = elemX2 + squareSize / 2f;
+            float midX = (centerX1 + centerX2) / 2f;
+
+            // Желаемый зазор между элементами для знака сравнения (в пикселях)
+            int desiredGap = 80;
+
+            // Расстояние между центрами
+            float distance = Math.Abs(centerX1 - centerX2);
+
+            // Если расстояние уже достаточное, можем даже немного свести; иначе разводим
+            float halfGap = desiredGap / 2f;
+
+            // Вычисляем целевые X: левый элемент сдвигается так, чтобы его правый край был левее midX на halfGap,
+            // правый элемент - чтобы левый край был правее midX на halfGap.
+            // Но проще: targetX1 = midX - halfGap - squareSize/2 (чтобы центр был смещён)
+            // targetX2 = midX + halfGap - squareSize/2
+            float targetCenterX1 = midX - halfGap;
+            float targetCenterX2 = midX + halfGap;
+
+            x1 = (int)(targetCenterX1 - squareSize / 2f);
+            x2 = (int)(targetCenterX2 - squareSize / 2f);
+
+            // Y одинаковый
+            y1 = elemY1 - verticalOffset;
+            y2 = elemY2 - verticalOffset;
+
+            // Корректируем, чтобы не выходило за пределы канваса (опционально)
+            x1 = Math.Max(5, x1);
+            x2 = Math.Min(canvas.Width - squareSize - 5, x2);
+        }
+
+        private async Task AnimateFlyToComparison(int index1, int index2)
+        {
+            externalElementIndex1 = index1;
+            externalElementIndex2 = index2;
+
+            GetElementScreenPosition(index1, out int startX1, out int startY1);
+            GetElementScreenPosition(index2, out int startX2, out int startY2);
+            GetComparisonTargetPosition(index1, index2, out int targetX1, out int targetY1, out int targetX2, out int targetY2);
+
+            flyingValue1 = array[index1];
+            flyingValue2 = array[index2];
+            isFlying1 = true;
+            isFlying2 = true;
+
+            // Этап 1: Вертикальный подъём
+            int verticalSteps = 4;
+            for (int step = 0; step <= verticalSteps; step++)
+            {
+                float t = (float)step / verticalSteps;
+                float easeT = 1 - (float)Math.Pow(1 - t, 2); // плавное замедление
+
+                flyX1 = startX1;
+                flyY1 = startY1 + (targetY1 - startY1) * easeT;
+                flyX2 = startX2;
+                flyY2 = startY2 + (targetY2 - startY2) * easeT;
+
+                canvas.Invalidate();
+                await Task.Delay(1);
+            }
+
+            // Этап 2: Горизонтальное перемещение
+            int horizontalSteps = 5;
+            for (int step = 0; step <= horizontalSteps; step++)
+            {
+                float t = (float)step / horizontalSteps;
+                float easeT = 1 - (1 - t) * (1 - t); // плавное ускорение в начале
+
+                flyX1 = startX1 + (targetX1 - startX1) * easeT;
+                flyY1 = targetY1;
+                flyX2 = startX2 + (targetX2 - startX2) * easeT;
+                flyY2 = targetY2;
+
+                canvas.Invalidate();
+                await Task.Delay(1);
+            }
+
+            isFlying1 = false;
+            isFlying2 = false;
+            externalElement1 = array[index1];
+            externalElement2 = array[index2];
+            canvas.Invalidate();
+        }
+
+        private async Task AnimateSingleFlyToComparison(int index)
+        {
+            externalElementIndex1 = index;
+
+            GetElementScreenPosition(index, out int startX, out int startY);
+            int targetY = startY - 70;
+            int targetX = startX;
+
+            flyingValue1 = array[index];
+            isFlying1 = true;
+
+            int steps = 8;
+            for (int step = 0; step <= steps; step++)
+            {
+                float t = (float)step / steps;
+                float easeT = 1 - (float)Math.Pow(1 - t, 2);
+
+                flyX1 = startX;
+                flyY1 = startY + (targetY - startY) * easeT;
+
+                canvas.Invalidate();
+                await Task.Delay(1);
+            }
+
+            isFlying1 = false;
+            externalElement1 = array[index];
+            externalElement2 = null;
+            externalElementIndex2 = null;
+            canvas.Invalidate();
+        }
+
+        private async Task AnimateFlyBack()
+        {
+            if (!externalElement1.HasValue && !externalElement2.HasValue) return;
+
+            int? savedIndex1 = externalElementIndex1;
+            int? savedIndex2 = externalElementIndex2;
+            int? savedValue1 = externalElement1;
+            int? savedValue2 = externalElement2;
+
+            if (savedIndex1.HasValue && savedIndex2.HasValue)
+            {
+                // Текущие позиции (панель сравнения) становятся стартовыми для возврата
+                GetComparisonTargetPosition(savedIndex1.Value, savedIndex2.Value, out int currentX1, out int currentY1, out int currentX2, out int currentY2);
+                GetElementScreenPosition(savedIndex1.Value, out int targetX1, out int targetY1);
+                GetElementScreenPosition(savedIndex2.Value, out int targetX2, out int targetY2);
+
+                flyingValue1 = savedValue1.Value;
+                flyingValue2 = savedValue2.Value;
+                isFlying1 = true;
+                isFlying2 = true;
+
+                // Очищаем внешние элементы, чтобы не мешали
+                externalElement1 = null;
+                externalElement2 = null;
+                comparisonSign = "";
+                canvas.Invalidate();
+
+                // Этап 1: Горизонтальное движение к исходной X (на той же высоте)
+                int horizontalSteps = 5;
+                for (int step = 0; step <= horizontalSteps; step++)
+                {
+                    float t = (float)step / horizontalSteps;
+                    float easeT = 1 - (1 - t) * (1 - t);
+
+                    flyX1 = currentX1 + (targetX1 - currentX1) * easeT;
+                    flyY1 = currentY1;
+                    flyX2 = currentX2 + (targetX2 - currentX2) * easeT;
+                    flyY2 = currentY2;
+
+                    canvas.Invalidate();
+                    await Task.Delay(1);
+                }
+
+                // Этап 2: Вертикальное опускание
+                int verticalSteps = 4;
+                for (int step = 0; step <= verticalSteps; step++)
+                {
+                    float t = (float)step / verticalSteps;
+                    float easeT = t * t; // плавное ускорение
+
+                    flyX1 = targetX1;
+                    flyY1 = currentY1 + (targetY1 - currentY1) * easeT;
+                    flyX2 = targetX2;
+                    flyY2 = currentY2 + (targetY2 - currentY2) * easeT;
+
+                    canvas.Invalidate();
+                    await Task.Delay(1);
+                }
+            }
+            else if (savedIndex1.HasValue)
+            {
+                // Один элемент (аналогично, но только вертикально)
+                GetElementScreenPosition(savedIndex1.Value, out int targetX, out int targetY);
+                int currentY = targetY - 70;
+                flyingValue1 = savedValue1.Value;
+                isFlying1 = true;
+                externalElement1 = null;
+                comparisonSign = "";
+                canvas.Invalidate();
+
+                int steps = 8;
+                for (int step = 0; step <= steps; step++)
+                {
+                    float t = (float)step / steps;
+                    float easeT = t * t;
+                    flyX1 = targetX;
+                    flyY1 = currentY + (targetY - currentY) * easeT;
+                    canvas.Invalidate();
+                    await Task.Delay(1);
+                }
+            }
+
+            isFlying1 = false;
+            isFlying2 = false;
+            externalElementIndex1 = null;
+            externalElementIndex2 = null;
+            canvas.Invalidate();
+        }
+
+        private async Task AnimateSingleFlyBack()
+        {
+            await AnimateFlyBack(); // переиспользуем общий метод
+        }
+
+        // ========== ВСЯ ОТРИСОВКА ВНУТРИ CANVAS ==========
+        private void Canvas_Paint(object sender, PaintEventArgs e)
+        {
+            if (array == null || array.Length == 0) return;
+
+            Graphics g = e.Graphics;
+            int squareSize = 35;
+            int spacing = 3;
+
+            int totalWidth = array.Length * (squareSize + spacing) - spacing;
+            int startX = Math.Max(10, (canvas.Width - totalWidth) / 2);
+            int startY = (canvas.Height - squareSize) / 2;
+
+            // 1. Рисуем элементы массива (кроме тех, что в полёте или являются внешними)
             for (int i = 0; i < array.Length; i++)
             {
                 int x = startX + i * (squareSize + spacing);
                 int y = startY;
 
+                // Пропускаем элементы, которые сейчас летят
                 if ((externalElementIndex1 == i && isFlying1) || (externalElementIndex2 == i && isFlying2))
-                {
                     continue;
-                }
+
+                // Пропускаем элементы, которые в данный момент отображаются как внешние (в панели сравнения или поднятые)
+                if (externalElementIndex1 == i && externalElement1.HasValue)
+                    continue;
+                if (externalElementIndex2 == i && externalElement2.HasValue)
+                    continue;
 
                 Color backColor = isSorted[i] ? sortedColor : defaultColor;
-
                 using (Brush brush = new SolidBrush(backColor))
                 {
                     g.FillRectangle(brush, x, y, squareSize, squareSize);
@@ -441,21 +401,60 @@ namespace РГР
                     g.DrawString(valueText, font, Brushes.Black, textX, textY);
                 }
             }
+
+            // 2. Рисуем летящие элементы
+            DrawFlyingElementsOnCanvas(g, squareSize);
+
+            // 3. Рисуем панель сравнения (только если элементы не летят)
+            DrawComparisonPanelOnCanvas(g, squareSize);
         }
 
-        private void DrawComparisonPanel(Graphics g)
+        private void DrawFlyingElementsOnCanvas(Graphics g, int squareSize)
         {
-            if (externalElement1.HasValue && externalElement2.HasValue && !isFlying1 && !isFlying2 && externalElementIndex1.HasValue && externalElementIndex2.HasValue)
+            if (isFlying1)
             {
-                int squareSize = 35;
-
-                GetComparisonTargetPosition(externalElementIndex1.Value, externalElementIndex2.Value, out int x1, out int y1, out int x2, out int y2);
-
-                // Рисуем первый элемент
                 using (Brush brush = new SolidBrush(defaultColor))
+                    g.FillRectangle(brush, flyX1, flyY1, squareSize, squareSize);
+                g.DrawRectangle(Pens.Black, flyX1, flyY1, squareSize, squareSize);
+                using (Font font = new Font("Arial", 9, FontStyle.Bold))
                 {
-                    g.FillRectangle(brush, x1, y1, squareSize, squareSize);
+                    string valueText = flyingValue1.ToString();
+                    SizeF textSize = g.MeasureString(valueText, font);
+                    float textX = flyX1 + (squareSize - textSize.Width) / 2;
+                    float textY = flyY1 + (squareSize - textSize.Height) / 2;
+                    g.DrawString(valueText, font, Brushes.Black, textX, textY);
                 }
+            }
+
+            if (isFlying2)
+            {
+                using (Brush brush = new SolidBrush(defaultColor))
+                    g.FillRectangle(brush, flyX2, flyY2, squareSize, squareSize);
+                g.DrawRectangle(Pens.Black, flyX2, flyY2, squareSize, squareSize);
+                using (Font font = new Font("Arial", 9, FontStyle.Bold))
+                {
+                    string valueText = flyingValue2.ToString();
+                    SizeF textSize = g.MeasureString(valueText, font);
+                    float textX = flyX2 + (squareSize - textSize.Width) / 2;
+                    float textY = flyY2 + (squareSize - textSize.Height) / 2;
+                    g.DrawString(valueText, font, Brushes.Black, textX, textY);
+                }
+            }
+        }
+
+        private void DrawComparisonPanelOnCanvas(Graphics g, int squareSize)
+        {
+            if (isFlying1 || isFlying2) return;
+
+            if (externalElement1.HasValue && externalElement2.HasValue &&
+                externalElementIndex1.HasValue && externalElementIndex2.HasValue)
+            {
+                GetComparisonTargetPosition(externalElementIndex1.Value, externalElementIndex2.Value,
+                    out int x1, out int y1, out int x2, out int y2);
+
+                // Первый элемент
+                using (Brush brush = new SolidBrush(defaultColor))
+                    g.FillRectangle(brush, x1, y1, squareSize, squareSize);
                 g.DrawRectangle(Pens.Black, x1, y1, squareSize, squareSize);
                 using (Font font = new Font("Arial", 10, FontStyle.Bold))
                 {
@@ -466,10 +465,9 @@ namespace РГР
                     g.DrawString(valueText, font, Brushes.Black, textX, textY);
                 }
 
-                // Рисуем знак сравнения между элементами
+                // Знак сравнения
                 int centerX = (x1 + x2) / 2 + squareSize / 2;
                 int centerY = y1 + squareSize / 2;
-
                 using (Font font = new Font("Arial", 18, FontStyle.Bold))
                 {
                     SizeF signSize = g.MeasureString(comparisonSign, font);
@@ -478,11 +476,9 @@ namespace РГР
                     g.DrawString(comparisonSign, font, Brushes.DarkRed, signX, signY);
                 }
 
-                // Рисуем второй элемент
+                // Второй элемент
                 using (Brush brush = new SolidBrush(defaultColor))
-                {
                     g.FillRectangle(brush, x2, y2, squareSize, squareSize);
-                }
                 g.DrawRectangle(Pens.Black, x2, y2, squareSize, squareSize);
                 using (Font font = new Font("Arial", 10, FontStyle.Bold))
                 {
@@ -493,8 +489,26 @@ namespace РГР
                     g.DrawString(valueText, font, Brushes.Black, textX, textY);
                 }
             }
+            else if (externalElement1.HasValue && externalElementIndex1.HasValue)
+            {
+                // Один поднятый элемент (например, в сортировке вставками)
+                GetElementScreenPosition(externalElementIndex1.Value, out int x, out int y);
+                int targetY = y - 70;
+                using (Brush brush = new SolidBrush(defaultColor))
+                    g.FillRectangle(brush, x, targetY, squareSize, squareSize);
+                g.DrawRectangle(Pens.Black, x, targetY, squareSize, squareSize);
+                using (Font font = new Font("Arial", 10, FontStyle.Bold))
+                {
+                    string valueText = externalElement1.Value.ToString();
+                    SizeF textSize = g.MeasureString(valueText, font);
+                    float textX = x + (squareSize - textSize.Width) / 2;
+                    float textY = targetY + (squareSize - textSize.Height) / 2;
+                    g.DrawString(valueText, font, Brushes.Black, textX, textY);
+                }
+            }
         }
 
+        // ========== УПРАВЛЕНИЕ СОРТИРОВКОЙ ==========
         private async void StartButton_Click(object sender, EventArgs e)
         {
             if (isSorting) return;
@@ -514,7 +528,6 @@ namespace РГР
             comparisonSign = "";
             for (int i = 0; i < array.Length; i++) isSorted[i] = false;
             canvas.Invalidate();
-            this.Invalidate();
 
             try
             {
@@ -541,7 +554,6 @@ namespace РГР
                 externalElement1 = null;
                 externalElement2 = null;
                 canvas.Invalidate();
-                this.Invalidate();
             }
         }
 
@@ -569,7 +581,6 @@ namespace РГР
                 externalElementIndex1 = externalElementIndex2 = null;
                 comparisonSign = "";
                 canvas.Invalidate();
-                this.Invalidate();
             }
             else
             {
@@ -641,7 +652,7 @@ namespace РГР
                     comparisonSign = "=";
             }
 
-            this.Invalidate();
+            canvas.Invalidate();
             await Delay(token);
         }
 
@@ -652,18 +663,74 @@ namespace РГР
 
         private async Task ClearSingleExternal()
         {
-            await AnimateSingleFlyBack();
+            await AnimateFlyBack();
         }
 
         private async Task Swap(int i, int j, CancellationToken token)
         {
-            await ShowComparison(i, j, token);
+            // Элементы уже наверху после ShowComparison, обмениваем значения в массиве
             int temp = array[i];
             array[i] = array[j];
             array[j] = temp;
+
+            // Меняем местами визуально наверху
+            await AnimateSwapOnTop(i, j);
+
+            // После обмена знак сравнения уже не актуален – убираем
+            comparisonSign = "";
+            canvas.Invalidate();
+
+            // Возвращаем элементы на места
             await ClearExternal();
             canvas.Invalidate();
             await Delay(token);
+        }
+
+        private async Task AnimateSwapOnTop(int index1, int index2)
+        {
+            // Получаем текущие позиции (статичные элементы сейчас висят)
+            GetComparisonTargetPosition(index1, index2, out int x1, out int y1, out int x2, out int y2);
+
+            // Сохраняем значения, которые уже новые в массиве
+            int val1 = array[index1];
+            int val2 = array[index2];
+
+            // Переключаемся в режим летающих элементов, скрываем статичные
+            externalElement1 = null;
+            externalElement2 = null;
+            comparisonSign = "";
+            flyingValue1 = val1;
+            flyingValue2 = val2;
+            isFlying1 = true;
+            isFlying2 = true;
+            flyX1 = x1; flyY1 = y1;
+            flyX2 = x2; flyY2 = y2;
+            canvas.Invalidate();
+
+            float startX1 = x1, startY1 = y1;
+            float startX2 = x2, startY2 = y2;
+            int steps = 12;
+            for (int step = 0; step <= steps; step++)
+            {
+                float t = (float)step / steps;
+                flyX1 = startX1 + (startX2 - startX1) * t;
+                flyY1 = startY1 + (startY2 - startY1) * t;
+                flyX2 = startX2 + (startX1 - startX2) * t;
+                flyY2 = startY2 + (startY1 - startY2) * t;
+
+                canvas.Invalidate();
+                await Task.Delay(6);
+            }
+
+            // После анимации обмена переходим обратно в статичный режим
+            isFlying1 = false;
+            isFlying2 = false;
+            externalElement1 = val1;
+            externalElement2 = val2;
+            externalElementIndex1 = index1;
+            externalElementIndex2 = index2;
+
+            canvas.Invalidate();
         }
 
         // -------------------- Пузырьковая сортировка --------------------
@@ -676,12 +743,16 @@ namespace РГР
                 {
                     token.ThrowIfCancellationRequested();
                     await ShowComparison(j, j + 1, token);
+
                     if (array[j] > array[j + 1])
                     {
                         await Swap(j, j + 1, token);
                         swapped = true;
                     }
-                    await ClearExternal();
+                    else
+                    {
+                        await ClearExternal();
+                    }
                 }
                 isSorted[array.Length - 1 - i] = true;
                 canvas.Invalidate();
@@ -722,7 +793,7 @@ namespace РГР
                 int j = i - 1;
 
                 await AnimateSingleFlyToComparison(i);
-                this.Invalidate();
+                canvas.Invalidate();
                 await Delay(token);
 
                 while (j >= 0 && array[j] > key)
@@ -828,7 +899,7 @@ namespace РГР
             int i = low - 1;
 
             await AnimateSingleFlyToComparison(high);
-            this.Invalidate();
+            canvas.Invalidate();
             await Delay(token);
             await ClearSingleExternal();
 

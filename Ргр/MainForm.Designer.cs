@@ -26,7 +26,7 @@
             // Панель для массива - убрана белая область, уменьшена высота
             this.canvas = new Panel();
             this.canvas.Location = new System.Drawing.Point(10, 170);
-            this.canvas.Size = new System.Drawing.Size(1050, 80);
+            this.canvas.Size = new System.Drawing.Size(1050, 300);
             this.canvas.BackColor = System.Drawing.Color.White;
             this.canvas.BorderStyle = BorderStyle.None;
             this.canvas.Paint += new PaintEventHandler(this.Canvas_Paint);
@@ -114,7 +114,7 @@
 
             // Метка Размер
             Label sizeLabel = new Label();
-            sizeLabel.Text = "Размер (5-30):";
+            sizeLabel.Text = "Размер (5-25):";
             sizeLabel.Location = new System.Drawing.Point(15, 340);
             sizeLabel.Size = new System.Drawing.Size(180, 20);
             sizeLabel.Font = new System.Drawing.Font("Arial", 9);
@@ -124,7 +124,7 @@
             this.sizeNumeric.Location = new System.Drawing.Point(15, 363);
             this.sizeNumeric.Size = new System.Drawing.Size(180, 23);
             this.sizeNumeric.Minimum = 5;
-            this.sizeNumeric.Maximum = 30;
+            this.sizeNumeric.Maximum = 25;
             this.sizeNumeric.Value = 15;
             this.sizeNumeric.Font = new System.Drawing.Font("Arial", 9);
             this.sizeNumeric.ValueChanged += new EventHandler(this.SizeNumeric_ValueChanged);
