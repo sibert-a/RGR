@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Drawing;
 using System.Threading;
 using System.Threading.Tasks;
@@ -44,6 +45,15 @@ namespace РГР
         public MainForm()
         {
             InitializeComponent();
+
+            // ========== ДЛЯ КНОПКИ СПРАВКИ ==========
+            this.HelpButton = true;
+            this.MaximizeBox = false;
+            this.MinimizeBox = false;
+            this.FormBorderStyle = FormBorderStyle.FixedSingle;
+            this.KeyPreview = true;
+            this.KeyDown += MainForm_KeyDown;
+
             this.Resize += MainForm_Resize;
             this.Paint += MainForm_Paint;
 
@@ -53,6 +63,24 @@ namespace РГР
 
             GenerateArray();
             originalArray = array.ToArray();
+        }
+
+        // Обработчик кнопки "?" в заголовке окна
+        protected override void OnHelpButtonClicked(CancelEventArgs e)
+        {
+            e.Cancel = true;
+            HelpForm helpForm = new HelpForm();
+            helpForm.Show(this);
+        }
+
+        // Обработчик клавиши F1
+        private void MainForm_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.F1)
+            {
+                HelpForm helpForm = new HelpForm();
+                helpForm.Show(this);
+            }
         }
 
         private void MainForm_Paint(object sender, PaintEventArgs e)
