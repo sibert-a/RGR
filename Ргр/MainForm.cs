@@ -193,7 +193,7 @@ namespace РГР
             isFlying2 = true;
 
             // Этап 1: Вертикальный подъём
-            int verticalSteps = 4;
+            int verticalSteps = 8;
             for (int step = 0; step <= verticalSteps; step++)
             {
                 float t = (float)step / verticalSteps;
@@ -205,11 +205,11 @@ namespace РГР
                 flyY2 = startY2 + (targetY2 - startY2) * easeT;
 
                 canvas.Invalidate();
-                await Task.Delay(1);
+                await Task.Delay(2);
             }
 
             // Этап 2: Горизонтальное перемещение
-            int horizontalSteps = 5;
+            int horizontalSteps = 10;
             for (int step = 0; step <= horizontalSteps; step++)
             {
                 float t = (float)step / horizontalSteps;
@@ -221,7 +221,7 @@ namespace РГР
                 flyY2 = targetY2;
 
                 canvas.Invalidate();
-                await Task.Delay(1);
+                await Task.Delay(2);
             }
 
             isFlying1 = false;
@@ -252,7 +252,7 @@ namespace РГР
                 flyY1 = startY + (targetY - startY) * easeT;
 
                 canvas.Invalidate();
-                await Task.Delay(1);
+                await Task.Delay(2);
             }
 
             isFlying1 = false;
@@ -290,7 +290,7 @@ namespace РГР
                 canvas.Invalidate();
 
                 // Этап 1: Горизонтальное движение к исходной X (на той же высоте)
-                int horizontalSteps = 5;
+                int horizontalSteps = 10;
                 for (int step = 0; step <= horizontalSteps; step++)
                 {
                     float t = (float)step / horizontalSteps;
@@ -302,11 +302,11 @@ namespace РГР
                     flyY2 = currentY2;
 
                     canvas.Invalidate();
-                    await Task.Delay(1);
+                    await Task.Delay(2);
                 }
 
                 // Этап 2: Вертикальное опускание
-                int verticalSteps = 4;
+                int verticalSteps = 8;
                 for (int step = 0; step <= verticalSteps; step++)
                 {
                     float t = (float)step / verticalSteps;
@@ -318,7 +318,7 @@ namespace РГР
                     flyY2 = currentY2 + (targetY2 - currentY2) * easeT;
 
                     canvas.Invalidate();
-                    await Task.Delay(1);
+                    await Task.Delay(2);
                 }
             }
             else if (savedIndex1.HasValue)
@@ -340,7 +340,7 @@ namespace РГР
                     flyX1 = targetX;
                     flyY1 = currentY + (targetY - currentY) * easeT;
                     canvas.Invalidate();
-                    await Task.Delay(1);
+                    await Task.Delay(2);
                 }
             }
 
