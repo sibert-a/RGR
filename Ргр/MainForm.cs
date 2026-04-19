@@ -209,7 +209,8 @@ namespace РГР
                 await Task.Delay(5);
             }
 
-            int horizontalSteps = 10;
+            int diff = Math.Abs(index1 - index2);
+            int horizontalSteps = Math.Max(diff, 10);
             for (int step = 0; step <= horizontalSteps; step++)
             {
                 float t = (float)step / horizontalSteps;
@@ -282,7 +283,8 @@ namespace РГР
                 comparisonSign = "";
                 canvas.Invalidate();
 
-                int horizontalSteps = 10;
+                int diff = Math.Abs((int)savedIndex1 - (int)savedIndex2);
+                int horizontalSteps = Math.Max(diff, 10);
                 for (int step = 0; step <= horizontalSteps; step++)
                 {
                     float t = (float)step / horizontalSteps;
@@ -450,7 +452,6 @@ namespace РГР
             int startX = Math.Max(10, (canvas.Width - totalWidth) / 2);
             int startY = (canvas.Height - squareSize) / 2;
 
-            // 1. Основной массив
             for (int i = 0; i < array.Length; i++)
             {
                 int x = startX + i * (squareSize + spacing);
@@ -955,15 +956,18 @@ namespace РГР
             {
                 token.ThrowIfCancellationRequested();
                 await ShowComparison(j, high, token);
+                await ClearExternal();
                 if (array[j] <= pivot)
                 {
                     i++;
-                    await Swap(i, j, token);
+                    if (i != j)
+                        await Swap(i, j, token);
                 }
-                await ClearExternal();
             }
-            await Swap(i + 1, high, token);
-            await ClearExternal();
+            if (i + 1 != high)
+            {
+                await Swap(i + 1, high, token);
+            }
             canvas.Invalidate();
             return i + 1;
         }
