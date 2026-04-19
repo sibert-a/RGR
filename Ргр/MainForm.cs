@@ -44,6 +44,8 @@ namespace РГР
         private const int verticalSteps = 10;
         private int currentStep = 0;
 
+        private HelpForm activeHelpForm = null;
+
         #endregion
 
         #region Конструктор и инициализация
@@ -77,16 +79,30 @@ namespace РГР
         protected override void OnHelpButtonClicked(CancelEventArgs e)
         {
             e.Cancel = true;
-            HelpForm helpForm = new HelpForm();
-            helpForm.Show(this);
+            ShowHelpForm();
         }
 
         private void MainForm_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.F1)
             {
-                HelpForm helpForm = new HelpForm();
-                helpForm.Show(this);
+                ShowHelpForm();
+            }
+        }
+
+        private void ShowHelpForm()
+        {
+            if (activeHelpForm == null || activeHelpForm.IsDisposed)
+            {
+                activeHelpForm = new HelpForm();
+                activeHelpForm.FormClosed += (s, args) => activeHelpForm = null;
+                activeHelpForm.Show(); // <-- убрали this
+            }
+            else
+            {
+                if (activeHelpForm.WindowState == FormWindowState.Minimized)
+                    activeHelpForm.WindowState = FormWindowState.Normal;
+                activeHelpForm.Activate();
             }
         }
 
