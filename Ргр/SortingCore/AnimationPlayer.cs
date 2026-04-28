@@ -1,6 +1,6 @@
 ﻿using RGR_TIMP_S4.Render;
+using RGR_TIMP_S4.SortingCore;
 using System;
-using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -31,20 +31,14 @@ namespace RGR_TIMP_S4.SortingCore
         #region Публичные методы управления
         public void InvalidateCanvas() => canvas.Invalidate();
 
-        public Size GetCanvasSize() => canvas.ClientSize;
-
         public (int x, int y) GetPositionOnCanvas(int index) =>
             GeometryHelper.GetElementScreenPosition(ctx.Array.Length, canvas.ClientSize, index);
         #endregion
 
-        #region Основные анимации (обычные алгоритмы)
+        #region Основные анимации
+        // Полёт двух элементов к сравнению
         public async Task FlyToComparisonAsync(int index1, int index2)
         {
-            // Полностью сбрасываем предыдущее внешнее состояние
-            ClearExternalElements();
-            ctx.ComparisonSign = "";
-            ClearExternalIndices();
-
             SetExternalIndices(index1, index2);
 
             var start1 = GetElementPosition(index1);
@@ -54,16 +48,20 @@ namespace RGR_TIMP_S4.SortingCore
             SetFlyingValues(ctx.Array[index1], ctx.Array[index2]);
             SetFlyingState(true, true);
 
+            // Подъём вверх (оба элемента)
             await AnimateLiftTwo(start1.x, start1.y, target.y1,
                                  start2.x, start2.y, target.y2);
+            // Горизонтальное сближение
             await AnimateApproachTwo(start1.x, start2.x, target.x1, target.x2,
                                      target.y1, target.y2, index1, index2);
 
+            // Фиксация статичного положения для сравнения
             SetFlyingState(false, false);
             SetExternalElements(ctx.Array[index1], ctx.Array[index2]);
             InvalidateCanvas();
         }
 
+        // Возврат элементов на место
         public async Task FlyBackAsync()
         {
             if (!ctx.ExternalElement1.HasValue && !ctx.ExternalElement2.HasValue) return;
@@ -75,7 +73,9 @@ namespace RGR_TIMP_S4.SortingCore
 
             if (idx1.HasValue && idx2.HasValue)
             {
+                // Текущая позиция в зоне сравнения
                 var curTarget = GeometryHelper.GetComparisonTargetPosition(ctx.Array.Length, canvas.ClientSize, idx1.Value, idx2.Value);
+                // Исходная позиция в основном массиве
                 var home1 = GetElementPosition(idx1.Value);
                 var home2 = GetElementPosition(idx2.Value);
 
@@ -85,8 +85,10 @@ namespace RGR_TIMP_S4.SortingCore
                 ctx.ComparisonSign = "";
                 InvalidateCanvas();
 
+                // Горизонтальное расхождение к своим колонкам
                 await AnimateApproachTwo(curTarget.x1, curTarget.x2, home1.x, home2.x,
                                          curTarget.y1, curTarget.y2, idx1.Value, idx2.Value);
+                // Падение вниз (оба элемента)
                 await AnimateLandTwo(home1.x, curTarget.y1, home1.y,
                                      home2.x, curTarget.y2, home2.y);
             }
@@ -101,6 +103,7 @@ namespace RGR_TIMP_S4.SortingCore
                 ctx.ComparisonSign = "";
                 InvalidateCanvas();
 
+                // Падение одного элемента
                 await AnimateLandSingle(home.x, curY, home.y);
             }
 
@@ -109,6 +112,7 @@ namespace RGR_TIMP_S4.SortingCore
             InvalidateCanvas();
         }
 
+        // Обмен двух элементов наверху
         public async Task SwapOnTopAsync(int index1, int index2)
         {
             var target = GeometryHelper.GetComparisonTargetPosition(ctx.Array.Length, canvas.ClientSize, index1, index2);
@@ -120,13 +124,13 @@ namespace RGR_TIMP_S4.SortingCore
 
             ClearExternalElements();
             ctx.ComparisonSign = "";
-            // Устанавливаем индексы, чтобы рендерер скрыл элементы из основного массива
-            SetExternalIndices(index1, index2);
             SetFlyingValues(val1, val2);
             SetFlyingState(true, true);
+            // Начальные координаты на месте сравнения
             SetFlyPositions(x1, y1, x2, y2);
             InvalidateCanvas();
 
+            // Анимация встречного движения
             float fromX1 = x1, fromY1 = y1;
             float fromX2 = x2, fromY2 = y2;
             for (int step = 0; step <= SwapSteps; step++)
@@ -147,6 +151,7 @@ namespace RGR_TIMP_S4.SortingCore
             InvalidateCanvas();
         }
 
+        // Показ одного элемента над массивом
         public async Task SingleFlyToComparisonAsync(int index)
         {
             SetExternalIndices(index, null);
@@ -164,6 +169,7 @@ namespace RGR_TIMP_S4.SortingCore
             InvalidateCanvas();
         }
 
+        // Перемещение элемента в заданные координаты (слияние)
         public async Task FlyToPositionAsync(int sourceIndex, int targetX, int targetY)
         {
             var start = GetElementPosition(sourceIndex);
@@ -174,8 +180,11 @@ namespace RGR_TIMP_S4.SortingCore
 
             int liftY = start.y - GeometryHelper.VerticalComparisonOffset;
 
+            // Подъём
             await AnimateLiftSingle(start.x, start.y, liftY);
+            // Горизонтальный перелёт
             await AnimateHorizontalMove(start.x, targetX, liftY);
+            // Спуск на целевую позицию
             await AnimateLandSingle(targetX, liftY, targetY);
 
             SetFlyingState(false, false);
@@ -185,94 +194,7 @@ namespace RGR_TIMP_S4.SortingCore
         }
         #endregion
 
-        #region Анимации для слияния (с временными элементами)
-        public async Task AnimateLiftSingle(float x, float fromY, float toY, SortingContext.TempElementInfo info = null)
-        {
-            for (int step = 0; step <= VerticalSteps; step++)
-            {
-                float t = (float)step / VerticalSteps;
-                float ease = 1 - (float)Math.Pow(1 - t, 2);
-                float currentY = fromY + (toY - fromY) * ease;
-                UpdateInfoOrFly(info, x, currentY);
-                await FrameUpdate();
-            }
-        }
-
-        public async Task AnimateLandSingle(float x, float fromY, float toY, SortingContext.TempElementInfo info = null)
-        {
-            for (int step = 0; step <= VerticalSteps; step++)
-            {
-                float t = (float)step / VerticalSteps;
-                float ease = t * t;
-                float currentY = fromY + (toY - fromY) * ease;
-                UpdateInfoOrFly(info, x, currentY);
-                await FrameUpdate();
-            }
-        }
-
-        public async Task AnimateHorizontalMove(float fromX, float toX, float y, SortingContext.TempElementInfo info = null)
-        {
-            int steps = HorizontalStepsBase;
-            for (int step = 0; step <= steps; step++)
-            {
-                float t = (float)step / steps;
-                float ease = 1 - (1 - t) * (1 - t);
-                float currentX = fromX + (toX - fromX) * ease;
-                UpdateInfoOrFly(info, currentX, y);
-                await FrameUpdate();
-            }
-        }
-
-        public async Task FlyToPositionAsync(PointF from, int toX, int toY, SortingContext.TempElementInfo info = null)
-        {
-            float startX = from.X, startY = from.Y;
-            int liftY = (int)startY - GeometryHelper.VerticalComparisonOffset;
-
-            // Сохраняем текущее состояние полёта, чтобы не мешать другим анимациям
-            bool prevFly1 = ctx.IsFlying1;
-            int prevVal1 = ctx.FlyingValue1;
-
-            ctx.IsFlying1 = true;
-            if (info != null) ctx.FlyingValue1 = info.Value;
-
-            // Подъём
-            for (int step = 0; step <= VerticalSteps; step++)
-            {
-                float t = (float)step / VerticalSteps;
-                float ease = 1 - (float)Math.Pow(1 - t, 2);
-                float y = startY + (liftY - startY) * ease;
-                UpdateInfoOrFly(info, startX, y);
-                await FrameUpdate();
-            }
-            // Горизонтальный перелёт
-            int horizSteps = HorizontalStepsBase;
-            for (int step = 0; step <= horizSteps; step++)
-            {
-                float t = (float)step / horizSteps;
-                float ease = 1 - (1 - t) * (1 - t);
-                float x = startX + (toX - startX) * ease;
-                UpdateInfoOrFly(info, x, liftY);
-                await FrameUpdate();
-            }
-            // Спуск
-            for (int step = 0; step <= VerticalSteps; step++)
-            {
-                float t = (float)step / VerticalSteps;
-                float ease = t * t;
-                float y = liftY + (toY - liftY) * ease;
-                UpdateInfoOrFly(info, toX, y);
-                await FrameUpdate();
-            }
-
-            ctx.IsFlying1 = prevFly1;
-            ctx.FlyingValue1 = prevVal1;
-            if (info != null)
-                info.Position = new PointF(toX, toY);
-            InvalidateCanvas();
-        }
-        #endregion
-
-        #region Приватные хелперы для визуального состояния (общие)
+        #region Приватные хелперы для визуального состояния
         private void SetExternalIndices(int? idx1, int? idx2)
         {
             ctx.ExternalElementIndex1 = idx1;
@@ -333,6 +255,7 @@ namespace RGR_TIMP_S4.SortingCore
         #endregion
 
         #region Приватные анимационные хелперы (базовые движения)
+        // Вертикальный подъём двух элементов (ease out)
         private async Task AnimateLiftTwo(float x1, float y1, float toY1, float x2, float y2, float toY2)
         {
             for (int step = 0; step <= VerticalSteps; step++)
@@ -345,6 +268,7 @@ namespace RGR_TIMP_S4.SortingCore
             }
         }
 
+        // Горизонтальное сближение/расхождение двух элементов (ease in)
         private async Task AnimateApproachTwo(float fromX1, float fromX2, float toX1, float toX2,
                                               float y1, float y2, int idx1, int idx2)
         {
@@ -359,6 +283,7 @@ namespace RGR_TIMP_S4.SortingCore
             }
         }
 
+        // Вертикальный спуск двух элементов (ease in)
         private async Task AnimateLandTwo(float x1, float fromY1, float toY1, float x2, float fromY2, float toY2)
         {
             for (int step = 0; step <= VerticalSteps; step++)
@@ -371,37 +296,19 @@ namespace RGR_TIMP_S4.SortingCore
             }
         }
 
-        // Перегрузки AnimateLiftSingle, AnimateLandSingle, AnimateHorizontalMove без TempElementInfo
-        // уже определены в секции анимаций для обычных алгоритмов (через SetFlyPositions).
-        // В секции слияния добавлены версии с TempElementInfo.
-        // Чтобы избежать путаницы, оставим только версии с info, а в обычных анимациях будем использовать старые приватные методы,
-        // которые работают через ctx.FlyX1/FlyY1. Для этого подправим старые вызовы.
-        // (Ниже оставлены оригинальные приватные методы, которые используются в обычных анимациях)
-
-        private async Task AnimateLiftSingle(float fromX, float fromY, float toY)
+        // Вертикальный подъём одного элемента (ease out)
+        private async Task AnimateLiftSingle(float x, float fromY, float toY)
         {
             for (int step = 0; step <= VerticalSteps; step++)
             {
                 float t = (float)step / VerticalSteps;
                 float ease = 1 - (float)Math.Pow(1 - t, 2);
-                ctx.FlyX1 = fromX;
-                ctx.FlyY1 = fromY + (toY - fromY) * ease;
+                SetFlyPositions(x, fromY + (toY - fromY) * ease, 0, 0);
                 await FrameUpdate();
             }
         }
 
-        private async Task AnimateLandSingle(float x, float fromY, float toY)
-        {
-            for (int step = 0; step <= VerticalSteps; step++)
-            {
-                float t = (float)step / VerticalSteps;
-                float ease = t * t;
-                ctx.FlyX1 = x;
-                ctx.FlyY1 = fromY + (toY - fromY) * ease;
-                await FrameUpdate();
-            }
-        }
-
+        // Горизонтальный перелёт одного элемента (ease in)
         private async Task AnimateHorizontalMove(float fromX, float toX, float y)
         {
             int steps = HorizontalStepsBase;
@@ -409,25 +316,24 @@ namespace RGR_TIMP_S4.SortingCore
             {
                 float t = (float)step / steps;
                 float ease = 1 - (1 - t) * (1 - t);
-                ctx.FlyX1 = fromX + (toX - fromX) * ease;
-                ctx.FlyY1 = y;
+                SetFlyPositions(fromX + (toX - fromX) * ease, y, 0, 0);
                 await FrameUpdate();
             }
         }
 
-        // Универсальное обновление позиции (либо в TempElementInfo, либо в ctx)
-        private void UpdateInfoOrFly(SortingContext.TempElementInfo info, float x, float y)
+        // Вертикальный спуск одного элемента (ease in)
+        private async Task AnimateLandSingle(float x, float fromY, float toY)
         {
-            if (info != null)
-                info.Position = new PointF(x, y);
-            else
+            for (int step = 0; step <= VerticalSteps; step++)
             {
-                ctx.FlyX1 = x;
-                ctx.FlyY1 = y;
+                float t = (float)step / VerticalSteps;
+                float ease = t * t;
+                SetFlyPositions(x, fromY + (toY - fromY) * ease, 0, 0);
+                await FrameUpdate();
             }
-            InvalidateCanvas();
         }
 
+        // Обновление кадра: перерисовка и задержка
         private async Task FrameUpdate()
         {
             InvalidateCanvas();

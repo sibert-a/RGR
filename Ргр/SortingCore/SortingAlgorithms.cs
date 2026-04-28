@@ -1,7 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using static RGR_TIMP_S4.SortingCore.SortingContext;
 
 namespace RGR_TIMP_S4.SortingCore
 {
@@ -97,95 +96,55 @@ namespace RGR_TIMP_S4.SortingCore
             int[] L = new int[n1];
             int[] R = new int[n2];
 
-            // Копируем значения
             for (int i = 0; i < n1; i++) L[i] = ctx.Array[left + i];
             for (int j = 0; j < n2; j++) R[j] = ctx.Array[mid + 1 + j];
 
-            // Начинаем визуализацию: поднимаем элементы в верхние строки
-            await ctx.BeginMergeVisual(left, mid, right, token);
-
             int iIdx = 0, jIdx = 0, k = left;
+
+            if (ctx.ExternalElement1.HasValue || ctx.ExternalElement2.HasValue)
+                await ctx.ClearExternalAsync();
+
             while (iIdx < n1 && jIdx < n2)
             {
                 token.ThrowIfCancellationRequested();
+                await ctx.CompareAsync(left + iIdx, mid + 1 + jIdx, token);
+                await ctx.ClearExternalAsync();
 
-                // Получаем info для текущих элементов
-                var leftInfo = ctx.MergeTempLeft[iIdx];
-                var rightInfo = ctx.MergeTempRight[jIdx];
+                int sourceIdx = L[iIdx] <= R[jIdx] ? left + iIdx : mid + 1 + jIdx;
+                int val = L[iIdx] <= R[jIdx] ? L[iIdx] : R[jIdx];
 
-                // Определяем слоты сравнения
-                ctx.GetMergeSlots(leftInfo, rightInfo, out int x1, out int y1, out int x2, out int y2);
-
-                // Анимируем перемещение из временных позиций в слоты
-                await ctx.AnimateTempToSlot(leftInfo, x1, y1, true, token);
-                await ctx.AnimateTempToSlot(rightInfo, x2, y2, false, token);
-
-                // Знак сравнения
-                ctx.ComparisonSign = L[iIdx] <= R[jIdx] ? "<=" : ">";
+                var targetPos = ctx.GetElementPositionOnCanvas(k);   // используем публичный метод контекста
+                await ctx.MoveElementToAsync(sourceIdx, targetPos.x, targetPos.y, token);
+                ctx.SetElement(k, val);
                 await ctx.DelayAsync(token);
 
-                TempElementInfo smaller;
-                int slotSmallerX, slotSmallerY;
-                bool smallerIsLeft;
-                if (L[iIdx] <= R[jIdx])
-                {
-                    smaller = leftInfo;
-                    smallerIsLeft = true;
-                    slotSmallerX = x1;
-                    slotSmallerY = y1;
-                    iIdx++;
-                }
-                else
-                {
-                    smaller = rightInfo;
-                    smallerIsLeft = false;
-                    slotSmallerX = x2;
-                    slotSmallerY = y2;
-                    jIdx++;
-                }
-
-                // Анимация падения меньшего в основную позицию k
-                await ctx.AnimateSlotToMain(slotSmallerX, slotSmallerY, k, smaller, token);
-
-                // Удаляем меньший из временного списка
-                if (smallerIsLeft)
-                    ctx.MergeTempLeft.RemoveAt(0);
-                else
-                    ctx.MergeTempRight.RemoveAt(0);
-
-                // Если временный список ещё не пуст, перемещаем следующий элемент того же списка в освободившийся слот
-                if (smallerIsLeft && ctx.MergeTempLeft.Count > 0)
-                {
-                    var nextLeft = ctx.MergeTempLeft[0];
-                    await ctx.AnimateTempToSlot(nextLeft, x1, y1, true, token);
-                }
-                else if (!smallerIsLeft && ctx.MergeTempRight.Count > 0)
-                {
-                    var nextRight = ctx.MergeTempRight[0];
-                    await ctx.AnimateTempToSlot(nextRight, x2, y2, false, token);
-                }
-
+                if (L[iIdx] <= R[jIdx]) iIdx++; else jIdx++;
                 k++;
             }
 
-            // Перенос оставшихся элементов
             while (iIdx < n1)
             {
-                var info = ctx.MergeTempLeft[0];
-                ctx.MergeTempLeft.RemoveAt(0);
-                await ctx.MoveRemainingTempElement(info, k, token);
+                token.ThrowIfCancellationRequested();
+                var targetPos = ctx.GetElementPositionOnCanvas(k);
+                await ctx.MoveElementToAsync(left + iIdx, targetPos.x, targetPos.y, token);
+                ctx.SetElement(k, L[iIdx]);
+                await ctx.DelayAsync(token);
                 iIdx++; k++;
             }
+
             while (jIdx < n2)
             {
-                var info = ctx.MergeTempRight[0];
-                ctx.MergeTempRight.RemoveAt(0);
-                await ctx.MoveRemainingTempElement(info, k, token);
+                token.ThrowIfCancellationRequested();
+                var targetPos = ctx.GetElementPositionOnCanvas(k);
+                await ctx.MoveElementToAsync(mid + 1 + jIdx, targetPos.x, targetPos.y, token);
+                ctx.SetElement(k, R[jIdx]);
+                await ctx.DelayAsync(token);
                 jIdx++; k++;
             }
 
-            // Завершаем визуализацию
-            ctx.EndMergeVisual();
+            ctx.ExternalElement1 = ctx.ExternalElement2 = null;
+            ctx.ExternalElementIndex1 = ctx.ExternalElementIndex2 = null;
+            ctx.ComparisonSign = "";
         }
         #endregion
 
