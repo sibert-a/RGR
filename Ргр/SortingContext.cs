@@ -40,6 +40,8 @@ namespace РГР
             this.isPausedGetter = isPausedGetter ?? throw new ArgumentNullException(nameof(isPausedGetter));
         }
 
+        // ==================== Публичные методы управления ====================
+
         public void GenerateArray(int size, int maxValue = 100)
         {
             Random rand = new Random();
@@ -48,14 +50,13 @@ namespace РГР
             for (int i = 0; i < size; i++)
                 Array[i] = rand.Next(10, maxValue);
 
-            ExternalElement1 = ExternalElement2 = null;
-            ExternalElementIndex1 = ExternalElementIndex2 = null;
-            ComparisonSign = "";
-            IsFlying1 = IsFlying2 = false;
-            canvas.Invalidate();
+            ResetVisuals();
         }
 
-        // Основные операции для алгоритмов
+        public (int x, int y) GetElementPositionOnCanvas(int index)
+        {
+            return GeometryHelper.GetElementScreenPosition(Array.Length, canvas.ClientSize, index);
+        }
 
         public async Task DelayAsync(CancellationToken token)
         {
@@ -131,7 +132,6 @@ namespace РГР
             await DelayAsync(token);
         }
 
-        // Прямое изменение элемента (для сортировки слиянием)
         public void SetElement(int index, int value)
         {
             Array[index] = value;
@@ -155,48 +155,38 @@ namespace РГР
             canvas.Invalidate();
         }
 
-        // ----------------- Приватная геометрия и анимации ------------------
-
-        private void GetElementScreenPosition(int index, out int x, out int y)
+        public void ResetVisuals()
         {
-            int squareSize = 35;
-            int spacing = 3;
-            int totalWidth = Array.Length * (squareSize + spacing) - spacing;
-            int startX = Math.Max(10, (canvas.Width - totalWidth) / 2);
-            int startY = (canvas.Height - squareSize) / 2;
-            x = startX + index * (squareSize + spacing);
-            y = startY;
+            ExternalElement1 = ExternalElement2 = null;
+            ExternalElementIndex1 = ExternalElementIndex2 = null;
+            ComparisonSign = "";
+            IsFlying1 = IsFlying2 = false;
+            canvas.Invalidate();
         }
 
-        private void GetComparisonTargetPosition(int index1, int index2,
-            out int x1, out int y1, out int x2, out int y2)
+        public void LoadArray(int[] source)
         {
-            int squareSize = 35;
-            int verticalOffset = 70;
-            GetElementScreenPosition(index1, out int elemX1, out int elemY1);
-            GetElementScreenPosition(index2, out int elemX2, out int elemY2);
-            float centerX1 = elemX1 + squareSize / 2f;
-            float centerX2 = elemX2 + squareSize / 2f;
-            float midX = (centerX1 + centerX2) / 2f;
-            float halfGap = 40f;
-            float targetCenterX1 = midX - halfGap;
-            float targetCenterX2 = midX + halfGap;
-            x1 = (int)(targetCenterX1 - squareSize / 2f);
-            x2 = (int)(targetCenterX2 - squareSize / 2f);
-            y1 = elemY1 - verticalOffset;
-            y2 = elemY2 - verticalOffset;
-            x1 = Math.Max(5, x1);
-            x2 = Math.Min(canvas.Width - squareSize - 5, x2);
+            Array = new int[source.Length];
+            source.CopyTo(Array, 0);
+            IsSorted = new bool[source.Length];
+            canvas.Invalidate();
         }
+
+        // ==================== Приватные анимации (используют GeometryHelper) ====================
 
         private async Task AnimateFlyToComparison(int index1, int index2)
         {
             ExternalElementIndex1 = index1;
             ExternalElementIndex2 = index2;
-            GetElementScreenPosition(index1, out int startX1, out int startY1);
-            GetElementScreenPosition(index2, out int startX2, out int startY2);
-            GetComparisonTargetPosition(index1, index2,
-                out int targetX1, out int targetY1, out int targetX2, out int targetY2);
+
+            var pos1 = GeometryHelper.GetElementScreenPosition(Array.Length, canvas.ClientSize, index1);
+            var pos2 = GeometryHelper.GetElementScreenPosition(Array.Length, canvas.ClientSize, index2);
+            int startX1 = pos1.x, startY1 = pos1.y;
+            int startX2 = pos2.x, startY2 = pos2.y;
+
+            var targets = GeometryHelper.GetComparisonTargetPosition(Array.Length, canvas.ClientSize, index1, index2);
+            int targetX1 = targets.x1, targetY1 = targets.y1;
+            int targetX2 = targets.x2, targetY2 = targets.y2;
 
             FlyingValue1 = Array[index1];
             FlyingValue2 = Array[index2];
@@ -241,8 +231,11 @@ namespace РГР
         {
             ExternalElementIndex1 = index;
             ExternalElementIndex2 = null;
-            GetElementScreenPosition(index, out int startX, out int startY);
-            int targetY = startY - 70;
+
+            var pos = GeometryHelper.GetElementScreenPosition(Array.Length, canvas.ClientSize, index);
+            int startX = pos.x, startY = pos.y;
+            int targetY = startY - GeometryHelper.VerticalComparisonOffset;
+
             FlyingValue1 = Array[index];
             IsFlying1 = true;
 
@@ -273,10 +266,14 @@ namespace РГР
 
             if (idx1.HasValue && idx2.HasValue)
             {
-                GetComparisonTargetPosition(idx1.Value, idx2.Value,
-                    out int curX1, out int curY1, out int curX2, out int curY2);
-                GetElementScreenPosition(idx1.Value, out int tgtX1, out int tgtY1);
-                GetElementScreenPosition(idx2.Value, out int tgtX2, out int tgtY2);
+                var curTargets = GeometryHelper.GetComparisonTargetPosition(Array.Length, canvas.ClientSize, idx1.Value, idx2.Value);
+                int curX1 = curTargets.x1, curY1 = curTargets.y1;
+                int curX2 = curTargets.x2, curY2 = curTargets.y2;
+
+                var tgtPos1 = GeometryHelper.GetElementScreenPosition(Array.Length, canvas.ClientSize, idx1.Value);
+                var tgtPos2 = GeometryHelper.GetElementScreenPosition(Array.Length, canvas.ClientSize, idx2.Value);
+                int tgtX1 = tgtPos1.x, tgtY1 = tgtPos1.y;
+                int tgtX2 = tgtPos2.x, tgtY2 = tgtPos2.y;
 
                 FlyingValue1 = val1.Value;
                 FlyingValue2 = val2.Value;
@@ -315,8 +312,10 @@ namespace РГР
             }
             else if (idx1.HasValue)
             {
-                GetElementScreenPosition(idx1.Value, out int tgtX, out int tgtY);
-                int curY = tgtY - 70;
+                var tgtPos = GeometryHelper.GetElementScreenPosition(Array.Length, canvas.ClientSize, idx1.Value);
+                int tgtX = tgtPos.x, tgtY = tgtPos.y;
+                int curY = tgtY - GeometryHelper.VerticalComparisonOffset;
+
                 FlyingValue1 = val1.Value;
                 IsFlying1 = true;
                 ExternalElement1 = null;
@@ -344,8 +343,10 @@ namespace РГР
 
         private async Task AnimateSwapOnTop(int index1, int index2)
         {
-            GetComparisonTargetPosition(index1, index2,
-                out int x1, out int y1, out int x2, out int y2);
+            var targets = GeometryHelper.GetComparisonTargetPosition(Array.Length, canvas.ClientSize, index1, index2);
+            int x1 = targets.x1, y1 = targets.y1;
+            int x2 = targets.x2, y2 = targets.y2;
+
             int val1 = Array[index1];
             int val2 = Array[index2];
 
@@ -384,12 +385,14 @@ namespace РГР
 
         private async Task AnimateFlyToPosition(int sourceIndex, int targetX, int targetY)
         {
-            GetElementScreenPosition(sourceIndex, out int startX, out int startY);
+            var startPos = GeometryHelper.GetElementScreenPosition(Array.Length, canvas.ClientSize, sourceIndex);
+            int startX = startPos.x, startY = startPos.y;
+
             ExternalElementIndex1 = sourceIndex;
             FlyingValue1 = Array[sourceIndex];
             IsFlying1 = true;
 
-            int liftY = startY - 70;
+            int liftY = startY - GeometryHelper.VerticalComparisonOffset;
             int vertSteps = 8;
             for (int step = 0; step <= vertSteps; step++)
             {
