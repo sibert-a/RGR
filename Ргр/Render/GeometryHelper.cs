@@ -8,15 +8,16 @@ namespace RGR_TIMP_S4.Render
         public const int SquareSize = 35;
         public const int Spacing = 3;
         public const int VerticalComparisonOffset = 70;
+        public const int TempRowVerticalOffset = 2 * VerticalComparisonOffset; // 140
         public const float ComparisonHalfGap = 40f;
 
-        public static (int x, int y) GetElementScreenPosition(int arrayLength, Size canvasSize, int index)
+        public static (int x, int y) GetElementScreenPosition(int arrayLength, Size canvasSize, int index, int yOffset = 0)
         {
             int totalWidth = arrayLength * (SquareSize + Spacing) - Spacing;
             int startX = Math.Max(10, (canvasSize.Width - totalWidth) / 2);
             int startY = (canvasSize.Height - SquareSize) / 2;
             int x = startX + index * (SquareSize + Spacing);
-            return (x, startY);
+            return (x, startY + yOffset);
         }
 
         public static (int x1, int y1, int x2, int y2) GetComparisonTargetPosition(

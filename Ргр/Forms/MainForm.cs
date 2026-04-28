@@ -42,7 +42,6 @@ namespace RGR_TIMP_S4
             KeyDown += MainForm_KeyDown;
             Resize += MainForm_Resize;
 
-            // Двойная буферизация панели
             typeof(Panel).GetProperty("DoubleBuffered",
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                 ?.SetValue(canvas, true, null);
@@ -78,10 +77,7 @@ namespace RGR_TIMP_S4
             }
         }
 
-        private void MainForm_Resize(object sender, EventArgs e)
-        {
-            AdjustLayout();
-        }
+        private void MainForm_Resize(object sender, EventArgs e) => AdjustLayout();
 
         private void AdjustLayout()
         {
@@ -107,13 +103,9 @@ namespace RGR_TIMP_S4
         private void RestoreOriginalArray()
         {
             if (originalArray != null && originalArray.Length == sortingContext.Array.Length)
-            {
                 sortingContext.LoadArray(originalArray);
-            }
             else
-            {
                 GenerateArray();
-            }
         }
         #endregion
 
@@ -190,7 +182,6 @@ namespace RGR_TIMP_S4
                 isSorting = false;
                 isPaused = false;
             }
-
             RestoreOriginalArray();
             sortingContext.ResetVisuals();
             SetControlsState(false, false);
@@ -228,7 +219,7 @@ namespace RGR_TIMP_S4
         #region Отрисовка
         private void Canvas_Paint(object sender, PaintEventArgs e)
         {
-            ArrayRenderer.Draw(e.Graphics, sortingContext, canvas.ClientSize);
+            ArrayRenderer.Draw(e.Graphics, sortingContext.Scene);
         }
         #endregion
     }

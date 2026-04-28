@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using RGR_TIMP_S4.Render;
 
 namespace RGR_TIMP_S4.SortingCore
 {
@@ -99,52 +100,81 @@ namespace RGR_TIMP_S4.SortingCore
             for (int i = 0; i < n1; i++) L[i] = ctx.Array[left + i];
             for (int j = 0; j < n2; j++) R[j] = ctx.Array[mid + 1 + j];
 
+            await ctx.BeginMergeVisual(left, mid, right, token);
+
             int iIdx = 0, jIdx = 0, k = left;
-
-            if (ctx.ExternalElement1.HasValue || ctx.ExternalElement2.HasValue)
-                await ctx.ClearExternalAsync();
-
             while (iIdx < n1 && jIdx < n2)
             {
                 token.ThrowIfCancellationRequested();
-                await ctx.CompareAsync(left + iIdx, mid + 1 + jIdx, token);
-                await ctx.ClearExternalAsync();
 
-                int sourceIdx = L[iIdx] <= R[jIdx] ? left + iIdx : mid + 1 + jIdx;
-                int val = L[iIdx] <= R[jIdx] ? L[iIdx] : R[jIdx];
+                VisualElement leftInfo = ctx.MergeTempLeft[0];
+                VisualElement rightInfo = ctx.MergeTempRight[0];
 
-                var targetPos = ctx.GetElementPositionOnCanvas(k);   // используем публичный метод контекста
-                await ctx.MoveElementToAsync(sourceIdx, targetPos.x, targetPos.y, token);
-                ctx.SetElement(k, val);
+                ctx.GetMergeSlots(leftInfo, rightInfo, out int x1, out int y1, out int x2, out int y2);
+
+                await ctx.AnimateTempToSlot(leftInfo, x1, y1, true, token);
+                await ctx.AnimateTempToSlot(rightInfo, x2, y2, false, token);
+
+                ctx.ComparisonSign = L[iIdx] <= R[jIdx] ? "<=" : ">";
                 await ctx.DelayAsync(token);
 
-                if (L[iIdx] <= R[jIdx]) iIdx++; else jIdx++;
+                VisualElement smaller;
+                int slotSmallerX, slotSmallerY;
+                bool smallerIsLeft;
+                if (L[iIdx] <= R[jIdx])
+                {
+                    smaller = leftInfo;
+                    smallerIsLeft = true;
+                    slotSmallerX = x1;
+                    slotSmallerY = y1;
+                    iIdx++;
+                }
+                else
+                {
+                    smaller = rightInfo;
+                    smallerIsLeft = false;
+                    slotSmallerX = x2;
+                    slotSmallerY = y2;
+                    jIdx++;
+                }
+
+                await ctx.AnimateSlotToMain(slotSmallerX, slotSmallerY, k, smaller, token);
+
+                if (smallerIsLeft)
+                    ctx.MergeTempLeft.RemoveAt(0);
+                else
+                    ctx.MergeTempRight.RemoveAt(0);
+
+                if (smallerIsLeft && ctx.MergeTempLeft.Count > 0)
+                {
+                    var nextLeft = ctx.MergeTempLeft[0];
+                    await ctx.AnimateTempToSlot(nextLeft, x1, y1, true, token);
+                }
+                else if (!smallerIsLeft && ctx.MergeTempRight.Count > 0)
+                {
+                    var nextRight = ctx.MergeTempRight[0];
+                    await ctx.AnimateTempToSlot(nextRight, x2, y2, false, token);
+                }
+
                 k++;
             }
 
             while (iIdx < n1)
             {
-                token.ThrowIfCancellationRequested();
-                var targetPos = ctx.GetElementPositionOnCanvas(k);
-                await ctx.MoveElementToAsync(left + iIdx, targetPos.x, targetPos.y, token);
-                ctx.SetElement(k, L[iIdx]);
-                await ctx.DelayAsync(token);
+                var info = ctx.MergeTempLeft[0];
+                ctx.MergeTempLeft.RemoveAt(0);
+                await ctx.MoveRemainingTempElement(info, k, token);
                 iIdx++; k++;
             }
-
             while (jIdx < n2)
             {
-                token.ThrowIfCancellationRequested();
-                var targetPos = ctx.GetElementPositionOnCanvas(k);
-                await ctx.MoveElementToAsync(mid + 1 + jIdx, targetPos.x, targetPos.y, token);
-                ctx.SetElement(k, R[jIdx]);
-                await ctx.DelayAsync(token);
+                var info = ctx.MergeTempRight[0];
+                ctx.MergeTempRight.RemoveAt(0);
+                await ctx.MoveRemainingTempElement(info, k, token);
                 jIdx++; k++;
             }
 
-            ctx.ExternalElement1 = ctx.ExternalElement2 = null;
-            ctx.ExternalElementIndex1 = ctx.ExternalElementIndex2 = null;
-            ctx.ComparisonSign = "";
+            ctx.EndMergeVisual();
         }
         #endregion
 
@@ -199,13 +229,12 @@ namespace RGR_TIMP_S4.SortingCore
                 await ctx.DelayAsync(token);
             }
 
-            List<int> sortedList = new List<int>();
-            await Inorder(root, sortedList, token);
-
-            for (int i = 0; i < sortedList.Count; i++)
+            List<int> sorted = new List<int>();
+            await Inorder(root, sorted, token);
+            for (int i = 0; i < sorted.Count; i++)
             {
                 token.ThrowIfCancellationRequested();
-                ctx.SetElement(i, sortedList[i]);
+                ctx.SetElement(i, sorted[i]);
                 ctx.MarkSorted(i);
                 await ctx.DelayAsync(token);
             }
@@ -214,30 +243,27 @@ namespace RGR_TIMP_S4.SortingCore
         private class TreeNode
         {
             public int Value;
-            public TreeNode Left;
-            public TreeNode Right;
-            public TreeNode(int value) { Value = value; }
+            public TreeNode Left, Right;
+            public TreeNode(int v) => Value = v;
         }
 
-        private static TreeNode Insert(TreeNode root, int value)
+        private static TreeNode Insert(TreeNode node, int val)
         {
-            if (root == null) return new TreeNode(value);
-            if (value < root.Value)
-                root.Left = Insert(root.Left, value);
-            else
-                root.Right = Insert(root.Right, value);
-            return root;
+            if (node == null) return new TreeNode(val);
+            if (val < node.Value) node.Left = Insert(node.Left, val);
+            else node.Right = Insert(node.Right, val);
+            return node;
         }
 
-        private static async Task Inorder(TreeNode node, List<int> result, CancellationToken ct)
+        private static async Task Inorder(TreeNode node, List<int> res, CancellationToken ct)
         {
             if (node != null)
             {
-                await Inorder(node.Left, result, ct);
+                await Inorder(node.Left, res, ct);
                 ct.ThrowIfCancellationRequested();
-                result.Add(node.Value);
-                await Task.CompletedTask; // задержка осуществляется через ctx.DelayAsync? Здесь можно ничего не делать, т.к. в TreeSort ожидание уже есть.
-                await Inorder(node.Right, result, ct);
+                res.Add(node.Value);
+                await Task.CompletedTask;
+                await Inorder(node.Right, res, ct);
             }
         }
         #endregion

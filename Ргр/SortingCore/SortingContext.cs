@@ -1,53 +1,57 @@
-﻿using System;
+﻿using RGR_TIMP_S4.Render;
+using RGR_TIMP_S4.SortingCore;
+using System;
+using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using RGR_TIMP_S4.Render;
 
 namespace RGR_TIMP_S4.SortingCore
 {
-    // Класс состояния и управления. Не содержит сложной логики анимации.
     public class SortingContext
     {
         private readonly AnimationPlayer animator;
         private readonly TrackBar speedTrackBar;
         private readonly Func<bool> isPausedGetter;
 
-        #region Состояние массива
         public int[] Array { get; private set; }
         public bool[] IsSorted { get; private set; }
-        #endregion
+        public Scene Scene { get; private set; }
 
-        #region Визуальное состояние (используется рендерером и аниматором)
-        public int? ExternalElement1 { get; set; }
-        public int? ExternalElement2 { get; set; }
-        public int? ExternalElementIndex1 { get; set; }
-        public int? ExternalElementIndex2 { get; set; }
-        public string ComparisonSign { get; set; } = "";
+        public List<VisualElement> MergeTempLeft { get; } = new List<VisualElement>();
+        public List<VisualElement> MergeTempRight { get; } = new List<VisualElement>();
+        public bool IsMergeActive { get; set; }
 
-        public bool IsFlying1 { get; set; }
-        public bool IsFlying2 { get; set; }
-        public float FlyX1 { get; set; }
-        public float FlyY1 { get; set; }
-        public float FlyX2 { get; set; }
-        public float FlyY2 { get; set; }
-        public int FlyingValue1 { get; set; }
-        public int FlyingValue2 { get; set; }
-        #endregion
+        private string _comparisonSign;
+        public string ComparisonSign
+        {
+            get => _comparisonSign;
+            set
+            {
+                _comparisonSign = value;
+                if (Scene.Comparison != null)
+                {
+                    var (l, r, _) = Scene.Comparison.Value;
+                    Scene.Comparison = (l, r, value);
+                }
+                animator.InvalidateCanvas();
+            }
+        }
 
         public SortingContext(Panel canvas, TrackBar speedTrackBar, Func<bool> isPausedGetter)
         {
             this.speedTrackBar = speedTrackBar ?? throw new ArgumentNullException(nameof(speedTrackBar));
             this.isPausedGetter = isPausedGetter ?? throw new ArgumentNullException(nameof(isPausedGetter));
-            this.animator = new AnimationPlayer(canvas, this);
+            Scene = new Scene();
+            animator = new AnimationPlayer(canvas, this);
         }
 
-        // ==================== Управление массивом ====================
-
+        // Управление массивом
         public void GenerateArray(int size, int maxValue = 100)
         {
-            Random rand = new Random();
+            var rand = new Random();
             Array = new int[size];
             IsSorted = new bool[size];
             for (int i = 0; i < size; i++)
@@ -60,12 +64,14 @@ namespace RGR_TIMP_S4.SortingCore
             Array = new int[source.Length];
             source.CopyTo(Array, 0);
             IsSorted = new bool[source.Length];
-            animator.InvalidateCanvas();
+            animator.InitializeScene(Array);
         }
 
         public void SetElement(int index, int value)
         {
             Array[index] = value;
+            var el = Scene.Elements.FirstOrDefault(e => e.ArrayIndex == index && !e.IsTemporary);
+            if (el != null) el.Value = value;
             animator.InvalidateCanvas();
         }
 
@@ -74,41 +80,32 @@ namespace RGR_TIMP_S4.SortingCore
             if (IsSorted != null && index >= 0 && index < IsSorted.Length)
             {
                 IsSorted[index] = true;
+                var el = Scene.Elements.FirstOrDefault(e => e.ArrayIndex == index && !e.IsTemporary);
+                if (el != null) el.BackgroundColor = Color.LightGreen;
                 animator.InvalidateCanvas();
             }
         }
 
-        public void MarkSortedRange(int start, int count)
+        public void ResetVisuals()
         {
-            if (IsSorted == null) return;
-            for (int i = start; i < start + count && i < IsSorted.Length; i++)
-                IsSorted[i] = true;
+            IsMergeActive = false;
+            MergeTempLeft.Clear();
+            MergeTempRight.Clear();
+            animator.InitializeScene(Array);
             animator.InvalidateCanvas();
         }
-
-        // ==================== Управление паузой/задержкой ====================
 
         public async Task DelayAsync(CancellationToken token)
         {
             int delayMs = speedTrackBar.Value;
-            try
-            {
-                await Task.Delay(delayMs, token);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-
+            try { await Task.Delay(delayMs, token); }
+            catch (OperationCanceledException) { throw; }
             while (isPausedGetter() && !token.IsCancellationRequested)
-            {
                 await Task.Delay(50, token);
-            }
             token.ThrowIfCancellationRequested();
         }
 
-        // ==================== Действия, видимые алгоритмам (тонкие обёртки над аниматором) ====================
-
+        // Высокоуровневые действия для алгоритмов
         public (int x, int y) GetElementPositionOnCanvas(int index) =>
             animator.GetPositionOnCanvas(index);
 
@@ -121,18 +118,18 @@ namespace RGR_TIMP_S4.SortingCore
 
         public async Task SwapAsync(int i, int j, CancellationToken token)
         {
-            bool alreadyUp = ExternalElementIndex1 == i && ExternalElementIndex2 == j
-                             && ExternalElement1.HasValue && ExternalElement2.HasValue;
+            bool alreadyUp = Scene.Comparison != null &&
+                             Scene.Comparison.Value.Left.TargetArrayIndex == i &&
+                             Scene.Comparison.Value.Right.TargetArrayIndex == j;
             if (!alreadyUp)
             {
                 await animator.FlyToComparisonAsync(i, j);
                 await DelayAsync(token);
             }
 
-            // Обмен значений
-            int temp = Array[i];
+            int tmp = Array[i];
             Array[i] = Array[j];
-            Array[j] = temp;
+            Array[j] = tmp;
 
             await animator.SwapOnTopAsync(i, j);
             ComparisonSign = "";
@@ -140,7 +137,13 @@ namespace RGR_TIMP_S4.SortingCore
             await DelayAsync(token);
         }
 
-        public async Task ClearExternalAsync() => await animator.FlyBackAsync();
+        public async Task ClearExternalAsync()
+        {
+            if (Scene.Comparison != null)
+                await animator.FlyBackAsync();
+            else
+                await animator.FlyBackSingleAsync();
+        }
 
         public async Task ShowElementAsync(int index, CancellationToken token)
         {
@@ -150,27 +153,50 @@ namespace RGR_TIMP_S4.SortingCore
 
         public async Task MoveElementToAsync(int sourceIndex, int targetX, int targetY, CancellationToken token)
         {
-            await animator.FlyToPositionAsync(sourceIndex, targetX, targetY);
-            await DelayAsync(token);
+            // заглушка – не используется основными алгоритмами
+            await Task.CompletedTask;
         }
 
-        public void ResetVisuals()
+        // Методы для слияния
+        public async Task BeginMergeVisual(int left, int mid, int right, CancellationToken token)
         {
-            ExternalElement1 = ExternalElement2 = null;
-            ExternalElementIndex1 = ExternalElementIndex2 = null;
-            ComparisonSign = "";
-            IsFlying1 = IsFlying2 = false;
-            animator.InvalidateCanvas();
+            await animator.BeginMergeVisualAsync(left, mid, right, token);
         }
 
-        // ==================== Приватные помощники ====================
+        public void GetMergeSlots(VisualElement leftInfo, VisualElement rightInfo,
+            out int x1, out int y1, out int x2, out int y2)
+        {
+            var (sx1, sy1, sx2, sy2) = GeometryHelper.GetComparisonTargetPosition(
+                Array.Length, animator.GetCanvasSize(),
+                leftInfo.ArrayIndex.Value, rightInfo.ArrayIndex.Value);
+            x1 = sx1; y1 = sy1; x2 = sx2; y2 = sy2;
+        }
+
+        public async Task AnimateTempToSlot(VisualElement info, int slotX, int slotY, bool isLeftSlot, CancellationToken token)
+        {
+            await animator.AnimateTempToSlotAsync(info, slotX, slotY);
+        }
+
+        public async Task AnimateSlotToMain(int slotX, int slotY, int targetIndex, VisualElement info, CancellationToken token)
+        {
+            await animator.AnimateSlotToMainAsync(slotX, slotY, targetIndex, info, token);
+        }
+
+        public async Task MoveRemainingTempElement(VisualElement info, int targetIndex, CancellationToken token)
+        {
+            await animator.MoveRemainingTempElementAsync(info, targetIndex, token);
+        }
+
+        public void EndMergeVisual()
+        {
+            animator.EndMergeVisual();
+        }
 
         private void UpdateComparisonSign(int i, int j)
         {
             if (Array[i] < Array[j]) ComparisonSign = "<";
             else if (Array[i] > Array[j]) ComparisonSign = ">";
             else ComparisonSign = "=";
-            animator.InvalidateCanvas();
         }
     }
 }

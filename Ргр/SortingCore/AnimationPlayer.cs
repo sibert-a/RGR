@@ -1,6 +1,8 @@
 ﻿using RGR_TIMP_S4.Render;
-using RGR_TIMP_S4.SortingCore;
 using System;
+using System.Drawing;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -8,337 +10,350 @@ namespace RGR_TIMP_S4.SortingCore
 {
     internal class AnimationPlayer
     {
-        #region Константы анимации
         private const int VerticalSteps = 8;
         private const int HorizontalStepsBase = 10;
         private const int SwapSteps = 12;
         private const int FrameDelayMs = 5;
-        #endregion
 
-        #region Поля
         private readonly Panel canvas;
         private readonly SortingContext ctx;
-        #endregion
+        private Scene scene => ctx.Scene;
 
-        #region Инициализация
+        private VisualElement currentFlyingSingle = null;
+        public (int x, int y) GetPositionOnCanvas(int index) =>
+            GeometryHelper.GetElementScreenPosition(ctx.Array.Length, canvas.ClientSize, index);
+
         public AnimationPlayer(Panel canvas, SortingContext ctx)
         {
             this.canvas = canvas;
             this.ctx = ctx;
         }
-        #endregion
 
-        #region Публичные методы управления
         public void InvalidateCanvas() => canvas.Invalidate();
+        public Size GetCanvasSize() => canvas.ClientSize;
 
-        public (int x, int y) GetPositionOnCanvas(int index) =>
-            GeometryHelper.GetElementScreenPosition(ctx.Array.Length, canvas.ClientSize, index);
-        #endregion
+        // Перестроить сцену по текущему массиву
+        public void InitializeScene(int[] array)
+        {
+            scene.Clear();
+            var sz = canvas.ClientSize;
+            for (int i = 0; i < array.Length; i++)
+            {
+                var (x, y) = GeometryHelper.GetElementScreenPosition(array.Length, sz, i);
+                scene.Elements.Add(new VisualElement
+                {
+                    Value = array[i],
+                    X = x,
+                    Y = y,
+                    ArrayIndex = i,
+                    BackgroundColor = ctx.IsSorted[i] ? Color.LightGreen : Color.LightSkyBlue
+                });
+            }
+        }
 
-        #region Основные анимации
-        // Полёт двух элементов к сравнению
+        // ----------------------------------------------------------------
+        // Вспомогательные анимации движения
+        // ----------------------------------------------------------------
+        private async Task AnimateLiftTwo(VisualElement e1, VisualElement e2, float toY1, float toY2)
+        {
+            float sY1 = e1.Y, sY2 = e2.Y;
+            for (int st = 0; st <= VerticalSteps; st++)
+            {
+                float t = (float)st / VerticalSteps;
+                float e = 1 - (float)Math.Pow(1 - t, 2);
+                e1.Y = sY1 + (toY1 - sY1) * e;
+                e2.Y = sY2 + (toY2 - sY2) * e;
+                InvalidateCanvas();
+                await Task.Delay(FrameDelayMs);
+            }
+        }
+
+        private async Task AnimateApproachTwo(VisualElement e1, VisualElement e2, float toX1, float toX2)
+        {
+            float sX1 = e1.X, sX2 = e2.X;
+            int steps = HorizontalStepsBase;
+            for (int st = 0; st <= steps; st++)
+            {
+                float t = (float)st / steps;
+                float e = 1 - (1 - t) * (1 - t);
+                e1.X = sX1 + (toX1 - sX1) * e;
+                e2.X = sX2 + (toX2 - sX2) * e;
+                InvalidateCanvas();
+                await Task.Delay(FrameDelayMs);
+            }
+        }
+
+        private async Task AnimateLandTwo(VisualElement e1, VisualElement e2, float toY1, float toY2)
+        {
+            float sY1 = e1.Y, sY2 = e2.Y;
+            for (int st = 0; st <= VerticalSteps; st++)
+            {
+                float t = (float)st / VerticalSteps;
+                float e = t * t;
+                e1.Y = sY1 + (toY1 - sY1) * e;
+                e2.Y = sY2 + (toY2 - sY2) * e;
+                InvalidateCanvas();
+                await Task.Delay(FrameDelayMs);
+            }
+        }
+
+        private async Task AnimateLiftSingle(VisualElement el, float toY)
+        {
+            float sY = el.Y;
+            for (int st = 0; st <= VerticalSteps; st++)
+            {
+                float t = (float)st / VerticalSteps;
+                float e = 1 - (float)Math.Pow(1 - t, 2);
+                el.Y = sY + (toY - sY) * e;
+                InvalidateCanvas();
+                await Task.Delay(FrameDelayMs);
+            }
+        }
+
+        private async Task AnimateLandSingle(VisualElement el, float toY)
+        {
+            float sY = el.Y;
+            for (int st = 0; st <= VerticalSteps; st++)
+            {
+                float t = (float)st / VerticalSteps;
+                float e = t * t;
+                el.Y = sY + (toY - sY) * e;
+                InvalidateCanvas();
+                await Task.Delay(FrameDelayMs);
+            }
+        }
+
+        private async Task AnimateMoveTo(VisualElement el, float toX, float toY)
+        {
+            float sX = el.X, sY = el.Y;
+            int steps = HorizontalStepsBase;
+            for (int st = 0; st <= steps; st++)
+            {
+                float t = (float)st / steps;
+                float e = 1 - (1 - t) * (1 - t);
+                el.X = sX + (toX - sX) * e;
+                el.Y = sY + (toY - sY) * e;
+                InvalidateCanvas();
+                await Task.Delay(FrameDelayMs);
+            }
+            el.X = toX;
+            el.Y = toY;
+            InvalidateCanvas();
+        }
+
+        // ----------------------------------------------------------------
+        // Публичные методы для обычных алгоритмов
+        // ----------------------------------------------------------------
         public async Task FlyToComparisonAsync(int index1, int index2)
         {
-            SetExternalIndices(index1, index2);
+            var orig1 = scene.Elements.First(e => e.ArrayIndex == index1 && !e.IsTemporary);
+            var orig2 = scene.Elements.First(e => e.ArrayIndex == index2 && !e.IsTemporary);
+            orig1.IsVisible = false;
+            orig2.IsVisible = false;
 
-            var start1 = GetElementPosition(index1);
-            var start2 = GetElementPosition(index2);
-            var target = GeometryHelper.GetComparisonTargetPosition(ctx.Array.Length, canvas.ClientSize, index1, index2);
+            var fly1 = new VisualElement
+            {
+                Value = orig1.Value, X = orig1.X, Y = orig1.Y, IsVisible = true,
+                BackgroundColor = Color.LightSkyBlue, IsTemporary = true, TargetArrayIndex = index1
+            };
+            var fly2 = new VisualElement
+            {
+                Value = orig2.Value, X = orig2.X, Y = orig2.Y, IsVisible = true,
+                BackgroundColor = Color.LightSkyBlue, IsTemporary = true, TargetArrayIndex = index2
+            };
+            scene.Elements.Add(fly1);
+            scene.Elements.Add(fly2);
 
-            SetFlyingValues(ctx.Array[index1], ctx.Array[index2]);
-            SetFlyingState(true, true);
+            var (tx1, ty1, tx2, ty2) = GeometryHelper.GetComparisonTargetPosition(
+                ctx.Array.Length, canvas.ClientSize, index1, index2);
 
-            // Подъём вверх (оба элемента)
-            await AnimateLiftTwo(start1.x, start1.y, target.y1,
-                                 start2.x, start2.y, target.y2);
-            // Горизонтальное сближение
-            await AnimateApproachTwo(start1.x, start2.x, target.x1, target.x2,
-                                     target.y1, target.y2, index1, index2);
+            await AnimateLiftTwo(fly1, fly2, ty1, ty2);
+            await AnimateApproachTwo(fly1, fly2, tx1, tx2);
 
-            // Фиксация статичного положения для сравнения
-            SetFlyingState(false, false);
-            SetExternalElements(ctx.Array[index1], ctx.Array[index2]);
+            scene.Comparison = (fly1, fly2, "");
             InvalidateCanvas();
         }
 
-        // Возврат элементов на место
         public async Task FlyBackAsync()
         {
-            if (!ctx.ExternalElement1.HasValue && !ctx.ExternalElement2.HasValue) return;
+            if (scene.Comparison == null) return;
+            var (fly1, fly2, _) = scene.Comparison.Value;
+            int idx1 = fly1.TargetArrayIndex.Value;
+            int idx2 = fly2.TargetArrayIndex.Value;
 
-            int? idx1 = ctx.ExternalElementIndex1;
-            int? idx2 = ctx.ExternalElementIndex2;
-            int? val1 = ctx.ExternalElement1;
-            int? val2 = ctx.ExternalElement2;
+            var orig1 = scene.Elements.First(e => e.ArrayIndex == idx1 && !e.IsTemporary);
+            var orig2 = scene.Elements.First(e => e.ArrayIndex == idx2 && !e.IsTemporary);
 
-            if (idx1.HasValue && idx2.HasValue)
-            {
-                // Текущая позиция в зоне сравнения
-                var curTarget = GeometryHelper.GetComparisonTargetPosition(ctx.Array.Length, canvas.ClientSize, idx1.Value, idx2.Value);
-                // Исходная позиция в основном массиве
-                var home1 = GetElementPosition(idx1.Value);
-                var home2 = GetElementPosition(idx2.Value);
+            await AnimateApproachTwo(fly1, fly2, orig1.X, orig2.X);
+            await AnimateLandTwo(fly1, fly2, orig1.Y, orig2.Y);
 
-                SetFlyingValues(val1.Value, val2.Value);
-                SetFlyingState(true, true);
-                ClearExternalElements();
-                ctx.ComparisonSign = "";
-                InvalidateCanvas();
-
-                // Горизонтальное расхождение к своим колонкам
-                await AnimateApproachTwo(curTarget.x1, curTarget.x2, home1.x, home2.x,
-                                         curTarget.y1, curTarget.y2, idx1.Value, idx2.Value);
-                // Падение вниз (оба элемента)
-                await AnimateLandTwo(home1.x, curTarget.y1, home1.y,
-                                     home2.x, curTarget.y2, home2.y);
-            }
-            else if (idx1.HasValue)
-            {
-                var home = GetElementPosition(idx1.Value);
-                int curY = home.y - GeometryHelper.VerticalComparisonOffset;
-
-                SetFlyingValues(val1.Value, 0);
-                SetFlyingState(true, false);
-                ClearExternalSingle();
-                ctx.ComparisonSign = "";
-                InvalidateCanvas();
-
-                // Падение одного элемента
-                await AnimateLandSingle(home.x, curY, home.y);
-            }
-
-            SetFlyingState(false, false);
-            ClearExternalIndices();
+            // Обновляем значения основных элементов
+            orig1.Value = fly1.Value;
+            orig2.Value = fly2.Value;
+            scene.Elements.Remove(fly1);
+            scene.Elements.Remove(fly2);
+            orig1.IsVisible = true;
+            orig2.IsVisible = true;
+            scene.Comparison = null;
             InvalidateCanvas();
         }
 
-        // Обмен двух элементов наверху
         public async Task SwapOnTopAsync(int index1, int index2)
         {
-            var target = GeometryHelper.GetComparisonTargetPosition(ctx.Array.Length, canvas.ClientSize, index1, index2);
-            int x1 = target.x1, y1 = target.y1;
-            int x2 = target.x2, y2 = target.y2;
+            if (scene.Comparison == null) return;
+            var (fly1, fly2, _) = scene.Comparison.Value;
+            if (fly1.TargetArrayIndex != index1 || fly2.TargetArrayIndex != index2) return;
 
-            int val1 = ctx.Array[index1];
-            int val2 = ctx.Array[index2];
+            float fx1 = fly1.X, fy1 = fly1.Y;
+            float fx2 = fly2.X, fy2 = fly2.Y;
 
-            ClearExternalElements();
-            ctx.ComparisonSign = "";
-            SetFlyingValues(val1, val2);
-            SetFlyingState(true, true);
-            // Начальные координаты на месте сравнения
-            SetFlyPositions(x1, y1, x2, y2);
-            InvalidateCanvas();
-
-            // Анимация встречного движения
-            float fromX1 = x1, fromY1 = y1;
-            float fromX2 = x2, fromY2 = y2;
-            for (int step = 0; step <= SwapSteps; step++)
+            for (int st = 0; st <= SwapSteps; st++)
             {
-                float t = (float)step / SwapSteps;
-                SetFlyPositions(
-                    fromX1 + (fromX2 - fromX1) * t,
-                    fromY1 + (fromY2 - fromY1) * t,
-                    fromX2 + (fromX1 - fromX2) * t,
-                    fromY2 + (fromY1 - fromY2) * t);
+                float t = (float)st / SwapSteps;
+                fly1.X = fx1 + (fx2 - fx1) * t;
+                fly1.Y = fy1 + (fy2 - fy1) * t;
+                fly2.X = fx2 + (fx1 - fx2) * t;
+                fly2.Y = fy2 + (fy1 - fy2) * t;
                 InvalidateCanvas();
                 await Task.Delay(FrameDelayMs);
             }
 
-            SetFlyingState(false, false);
-            SetExternalElements(val1, val2);
-            SetExternalIndices(index1, index2);
+            fly1.Value = ctx.Array[index1];
+            fly2.Value = ctx.Array[index2];
             InvalidateCanvas();
         }
 
-        // Показ одного элемента над массивом
         public async Task SingleFlyToComparisonAsync(int index)
         {
-            SetExternalIndices(index, null);
+            if (currentFlyingSingle != null) await FlyBackSingleAsync();
 
-            var start = GetElementPosition(index);
-            int targetY = start.y - GeometryHelper.VerticalComparisonOffset;
-
-            SetFlyingValues(ctx.Array[index], 0);
-            SetFlyingState(true, false);
-
-            await AnimateLiftSingle(start.x, start.y, targetY);
-
-            SetFlyingState(false, false);
-            SetExternalSingle(ctx.Array[index]);
+            var orig = scene.Elements.First(e => e.ArrayIndex == index && !e.IsTemporary);
+            orig.IsVisible = false;
+            var fly = new VisualElement
+            {
+                Value = orig.Value, X = orig.X, Y = orig.Y, IsVisible = true,
+                BackgroundColor = Color.LightSkyBlue, IsTemporary = true, TargetArrayIndex = index
+            };
+            scene.Elements.Add(fly);
+            float targetY = orig.Y - GeometryHelper.VerticalComparisonOffset;
+            await AnimateLiftSingle(fly, targetY);
+            currentFlyingSingle = fly;
             InvalidateCanvas();
         }
 
-        // Перемещение элемента в заданные координаты (слияние)
-        public async Task FlyToPositionAsync(int sourceIndex, int targetX, int targetY)
+        public async Task FlyBackSingleAsync()
         {
-            var start = GetElementPosition(sourceIndex);
-
-            SetExternalIndices(sourceIndex, null);
-            SetFlyingValues(ctx.Array[sourceIndex], 0);
-            SetFlyingState(true, false);
-
-            int liftY = start.y - GeometryHelper.VerticalComparisonOffset;
-
-            // Подъём
-            await AnimateLiftSingle(start.x, start.y, liftY);
-            // Горизонтальный перелёт
-            await AnimateHorizontalMove(start.x, targetX, liftY);
-            // Спуск на целевую позицию
-            await AnimateLandSingle(targetX, liftY, targetY);
-
-            SetFlyingState(false, false);
-            ClearExternalSingle();
-            ClearExternalIndices();
+            if (currentFlyingSingle == null) return;
+            var fly = currentFlyingSingle;
+            int idx = fly.TargetArrayIndex.Value;
+            var orig = scene.Elements.First(e => e.ArrayIndex == idx && !e.IsTemporary);
+            float homeY = orig.Y;
+            await AnimateLandSingle(fly, homeY);
+            orig.Value = fly.Value;
+            scene.Elements.Remove(fly);
+            orig.IsVisible = true;
+            currentFlyingSingle = null;
             InvalidateCanvas();
         }
-        #endregion
 
-        #region Приватные хелперы для визуального состояния
-        private void SetExternalIndices(int? idx1, int? idx2)
+        // ----------------------------------------------------------------
+        // Операции для слияния
+        // ----------------------------------------------------------------
+        public async Task BeginMergeVisualAsync(int left, int mid, int right, CancellationToken token)
         {
-            ctx.ExternalElementIndex1 = idx1;
-            ctx.ExternalElementIndex2 = idx2;
-        }
-
-        private void ClearExternalIndices()
-        {
-            ctx.ExternalElementIndex1 = null;
-            ctx.ExternalElementIndex2 = null;
-        }
-
-        private void SetFlyingValues(int val1, int val2)
-        {
-            ctx.FlyingValue1 = val1;
-            ctx.FlyingValue2 = val2;
-        }
-
-        private void SetFlyingState(bool fly1, bool fly2)
-        {
-            ctx.IsFlying1 = fly1;
-            ctx.IsFlying2 = fly2;
-        }
-
-        private void SetFlyPositions(float x1, float y1, float x2, float y2)
-        {
-            ctx.FlyX1 = x1;
-            ctx.FlyY1 = y1;
-            ctx.FlyX2 = x2;
-            ctx.FlyY2 = y2;
-        }
-
-        private void SetExternalElements(int? val1, int? val2)
-        {
-            ctx.ExternalElement1 = val1;
-            ctx.ExternalElement2 = val2;
-        }
-
-        private void SetExternalSingle(int? val)
-        {
-            ctx.ExternalElement1 = val;
-            ctx.ExternalElement2 = null;
-        }
-
-        private void ClearExternalElements()
-        {
-            ctx.ExternalElement1 = null;
-            ctx.ExternalElement2 = null;
-        }
-
-        private void ClearExternalSingle()
-        {
-            ctx.ExternalElement1 = null;
-        }
-
-        private (int x, int y) GetElementPosition(int index) =>
-            GeometryHelper.GetElementScreenPosition(ctx.Array.Length, canvas.ClientSize, index);
-        #endregion
-
-        #region Приватные анимационные хелперы (базовые движения)
-        // Вертикальный подъём двух элементов (ease out)
-        private async Task AnimateLiftTwo(float x1, float y1, float toY1, float x2, float y2, float toY2)
-        {
-            for (int step = 0; step <= VerticalSteps; step++)
+            ctx.IsMergeActive = true;
+            // Скрыть основные элементы в диапазоне
+            for (int i = left; i <= right; i++)
             {
-                float t = (float)step / VerticalSteps;
-                float ease = 1 - (float)Math.Pow(1 - t, 2);
-                SetFlyPositions(x1, y1 + (toY1 - y1) * ease,
-                                x2, y2 + (toY2 - y2) * ease);
-                await FrameUpdate();
+                var elem = scene.Elements.First(e => e.ArrayIndex == i && !e.IsTemporary);
+                elem.IsVisible = false;
+            }
+
+            ctx.MergeTempLeft.Clear();
+            ctx.MergeTempRight.Clear();
+
+            // Левая часть
+            for (int i = left; i <= mid; i++)
+            {
+                var pos = GeometryHelper.GetElementScreenPosition(ctx.Array.Length, canvas.ClientSize, i);
+                int tempY = pos.y - GeometryHelper.TempRowVerticalOffset;
+                var temp = new VisualElement
+                {
+                    Value = ctx.Array[i], X = pos.x, Y = pos.y, IsVisible = true,
+                    BackgroundColor = Color.FromArgb(200, 200, 255), IsTemporary = true, ArrayIndex = i
+                };
+                scene.Elements.Add(temp);
+                ctx.MergeTempLeft.Add(temp);
+                await AnimateLiftSingle(temp, tempY);
+                temp.Y = tempY;
+                InvalidateCanvas();
+                await Task.Delay(20, token);
+            }
+            // Правая часть
+            for (int i = mid + 1; i <= right; i++)
+            {
+                var pos = GeometryHelper.GetElementScreenPosition(ctx.Array.Length, canvas.ClientSize, i);
+                int tempY = pos.y - GeometryHelper.TempRowVerticalOffset;
+                var temp = new VisualElement
+                {
+                    Value = ctx.Array[i], X = pos.x, Y = pos.y, IsVisible = true,
+                    BackgroundColor = Color.FromArgb(255, 200, 200), IsTemporary = true, ArrayIndex = i
+                };
+                scene.Elements.Add(temp);
+                ctx.MergeTempRight.Add(temp);
+                await AnimateLiftSingle(temp, tempY);
+                temp.Y = tempY;
+                InvalidateCanvas();
+                await Task.Delay(20, token);
             }
         }
 
-        // Горизонтальное сближение/расхождение двух элементов (ease in)
-        private async Task AnimateApproachTwo(float fromX1, float fromX2, float toX1, float toX2,
-                                              float y1, float y2, int idx1, int idx2)
+        public async Task AnimateTempToSlotAsync(VisualElement info, int slotX, int slotY)
         {
-            int steps = Math.Max(Math.Abs(idx1 - idx2), HorizontalStepsBase);
-            for (int step = 0; step <= steps; step++)
-            {
-                float t = (float)step / steps;
-                float ease = 1 - (1 - t) * (1 - t);
-                SetFlyPositions(fromX1 + (toX1 - fromX1) * ease, y1,
-                                fromX2 + (toX2 - fromX2) * ease, y2);
-                await FrameUpdate();
-            }
+            await AnimateMoveTo(info, slotX, slotY);
         }
 
-        // Вертикальный спуск двух элементов (ease in)
-        private async Task AnimateLandTwo(float x1, float fromY1, float toY1, float x2, float fromY2, float toY2)
+        public async Task AnimateSlotToMainAsync(int slotX, int slotY, int targetIndex, VisualElement info, CancellationToken token)
         {
-            for (int step = 0; step <= VerticalSteps; step++)
-            {
-                float t = (float)step / VerticalSteps;
-                float ease = t * t;
-                SetFlyPositions(x1, fromY1 + (toY1 - fromY1) * ease,
-                                x2, fromY2 + (toY2 - fromY2) * ease);
-                await FrameUpdate();
-            }
-        }
+            var targetPos = GeometryHelper.GetElementScreenPosition(ctx.Array.Length, canvas.ClientSize, targetIndex);
+            await AnimateMoveTo(info, targetPos.x, targetPos.y);
 
-        // Вертикальный подъём одного элемента (ease out)
-        private async Task AnimateLiftSingle(float x, float fromY, float toY)
-        {
-            for (int step = 0; step <= VerticalSteps; step++)
-            {
-                float t = (float)step / VerticalSteps;
-                float ease = 1 - (float)Math.Pow(1 - t, 2);
-                SetFlyPositions(x, fromY + (toY - fromY) * ease, 0, 0);
-                await FrameUpdate();
-            }
-        }
-
-        // Горизонтальный перелёт одного элемента (ease in)
-        private async Task AnimateHorizontalMove(float fromX, float toX, float y)
-        {
-            int steps = HorizontalStepsBase;
-            for (int step = 0; step <= steps; step++)
-            {
-                float t = (float)step / steps;
-                float ease = 1 - (1 - t) * (1 - t);
-                SetFlyPositions(fromX + (toX - fromX) * ease, y, 0, 0);
-                await FrameUpdate();
-            }
-        }
-
-        // Вертикальный спуск одного элемента (ease in)
-        private async Task AnimateLandSingle(float x, float fromY, float toY)
-        {
-            for (int step = 0; step <= VerticalSteps; step++)
-            {
-                float t = (float)step / VerticalSteps;
-                float ease = t * t;
-                SetFlyPositions(x, fromY + (toY - fromY) * ease, 0, 0);
-                await FrameUpdate();
-            }
-        }
-
-        // Обновление кадра: перерисовка и задержка
-        private async Task FrameUpdate()
-        {
+            // Показать и обновить основной элемент
+            var main = scene.Elements.First(e => e.ArrayIndex == targetIndex && !e.IsTemporary);
+            main.Value = info.Value;
+            main.IsVisible = true;
+            main.BackgroundColor = Color.LightGreen;
+            ctx.MarkSorted(targetIndex);
+            scene.Elements.Remove(info);   // временный элемент больше не нужен
             InvalidateCanvas();
-            await Task.Delay(FrameDelayMs);
+            await ctx.DelayAsync(token);
         }
-        #endregion
+
+        public async Task MoveRemainingTempElementAsync(VisualElement info, int targetIndex, CancellationToken token)
+        {
+            var targetPos = GeometryHelper.GetElementScreenPosition(ctx.Array.Length, canvas.ClientSize, targetIndex);
+            await AnimateMoveTo(info, targetPos.x, targetPos.y);
+
+            var main = scene.Elements.First(e => e.ArrayIndex == targetIndex && !e.IsTemporary);
+            main.Value = info.Value;
+            main.IsVisible = true;
+            ctx.MarkSorted(targetIndex);
+            scene.Elements.Remove(info);
+            InvalidateCanvas();
+            await ctx.DelayAsync(token);
+        }
+
+        public void EndMergeVisual()
+        {
+            ctx.IsMergeActive = false;
+            foreach (var tmp in ctx.MergeTempLeft.Concat(ctx.MergeTempRight))
+                scene.Elements.Remove(tmp);
+            ctx.MergeTempLeft.Clear();
+            ctx.MergeTempRight.Clear();
+            // Показать все основные элементы
+            foreach (var el in scene.Elements.Where(e => !e.IsTemporary && e.ArrayIndex.HasValue))
+                el.IsVisible = true;
+            InvalidateCanvas();
+        }
     }
 }
