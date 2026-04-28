@@ -2,7 +2,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace РГР
+namespace РГР.SortingCore
 {
     public static class SortingAlgorithms
     {
@@ -110,8 +110,8 @@ namespace РГР
                 await ctx.CompareAsync(left + iIdx, mid + 1 + jIdx, token);
                 await ctx.ClearExternalAsync();
 
-                int sourceIdx = (L[iIdx] <= R[jIdx]) ? left + iIdx : mid + 1 + jIdx;
-                int val = (L[iIdx] <= R[jIdx]) ? L[iIdx] : R[jIdx];
+                int sourceIdx = L[iIdx] <= R[jIdx] ? left + iIdx : mid + 1 + jIdx;
+                int val = L[iIdx] <= R[jIdx] ? L[iIdx] : R[jIdx];
 
                 var targetPos = ctx.GetElementPositionOnCanvas(k);   // используем публичный метод контекста
                 await ctx.MoveElementToAsync(sourceIdx, targetPos.x, targetPos.y, token);

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Drawing;
 
-namespace РГР
+namespace РГР.Render
 {
     public static class GeometryHelper
     {

@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Drawing;
+using РГР.SortingCore;
 
-namespace РГР
+namespace РГР.Render
 {
     public static class ArrayRenderer
     {
@@ -16,8 +17,8 @@ namespace РГР
             // Основной массив
             for (int i = 0; i < n; i++)
             {
-                if ((ctx.ExternalElementIndex1 == i && ctx.IsFlying1) ||
-                    (ctx.ExternalElementIndex2 == i && ctx.IsFlying2))
+                if (ctx.ExternalElementIndex1 == i && ctx.IsFlying1 ||
+                    ctx.ExternalElementIndex2 == i && ctx.IsFlying2)
                     continue;
                 if (ctx.ExternalElementIndex1 == i && ctx.ExternalElement1.HasValue) continue;
                 if (ctx.ExternalElementIndex2 == i && ctx.ExternalElement2.HasValue) continue;

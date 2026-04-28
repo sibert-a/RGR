@@ -2,7 +2,7 @@
 using System.Drawing;
 using System.Windows.Forms;
 
-namespace РГР
+namespace РГР.Forms
 {
     public class HelpForm : Form
     {
@@ -13,13 +13,13 @@ namespace РГР
 
         private void SetupHelpForm()
         {
-            this.Text = "Справка — Визуализация алгоритмов сортировки";
-            this.Size = new Size(700, 600);
-            this.StartPosition = FormStartPosition.CenterParent;
-            this.BackColor = Color.White;
-            this.FormBorderStyle = FormBorderStyle.FixedDialog;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
+            Text = "Справка — Визуализация алгоритмов сортировки";
+            Size = new Size(700, 600);
+            StartPosition = FormStartPosition.CenterParent;
+            BackColor = Color.White;
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
+            MinimizeBox = false;
 
             RichTextBox richTextBox = new RichTextBox();
             richTextBox.Dock = DockStyle.Fill;
@@ -54,10 +54,10 @@ namespace РГР
             richTextBox.ScrollToCaret();
 
             // 3. Убираем фокус с RichTextBox 
-            this.ActiveControl = null;
+            ActiveControl = null;
 
 
-            this.Controls.Add(richTextBox);
+            Controls.Add(richTextBox);
         }
         private void FormatBold(RichTextBox rtb, string textToBold)
         {
@@ -77,7 +77,7 @@ namespace РГР
                 rtb.Select(startIndex, textToFormat.Length);
 
                 // Шрифт: используем текущий размер или заданный
-                float currentSize = (fontSize > 0) ? fontSize : rtb.Font.Size;
+                float currentSize = fontSize > 0 ? fontSize : rtb.Font.Size;
                 rtb.SelectionFont = new Font(rtb.Font.FontFamily, currentSize, style);
                 rtb.SelectionColor = color;
             }
