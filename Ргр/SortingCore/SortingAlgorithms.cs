@@ -2,7 +2,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace РГР.SortingCore
+namespace RGR_TIMP_S4.SortingCore
 {
     public static class SortingAlgorithms
     {

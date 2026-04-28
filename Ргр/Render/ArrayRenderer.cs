@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Drawing;
-using РГР.SortingCore;
+using RGR_TIMP_S4.SortingCore;
 
-namespace РГР.Render
+namespace RGR_TIMP_S4.Render
 {
     public static class ArrayRenderer
     {

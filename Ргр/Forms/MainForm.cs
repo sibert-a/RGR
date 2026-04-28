@@ -4,11 +4,11 @@ using System.Drawing;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using РГР.Forms;
-using РГР.Render;
-using РГР.SortingCore;
+using RGR_TIMP_S4.Forms;
+using RGR_TIMP_S4.Render;
+using RGR_TIMP_S4.SortingCore;
 
-namespace РГР
+namespace RGR_TIMP_S4
 {
     public partial class MainForm : Form
     {

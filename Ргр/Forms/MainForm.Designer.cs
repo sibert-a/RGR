@@ -1,4 +1,4 @@
-﻿namespace РГР
+﻿namespace RGR_TIMP_S4
 {
     partial class MainForm
     {

@@ -2,7 +2,7 @@
 using System.Drawing;
 using System.Windows.Forms;
 
-namespace РГР.Forms
+namespace RGR_TIMP_S4.Forms
 {
     public class HelpForm : Form
     {
