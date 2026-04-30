@@ -10,9 +10,9 @@ namespace RGR_TIMP_S4.SortingCore
 {
     internal class AnimationPlayer
     {
-        private const int VerticalSteps = 8;
-        private const int HorizontalStepsBase = 10;
-        private const int SwapSteps = 12;
+        private const int VerticalSteps = 16;
+        private const int HorizontalStepsBase = 20;
+        private const int SwapSteps = 40;
         private const int FrameDelayMs = 5;
 
         private readonly Panel canvas;
@@ -218,6 +218,7 @@ namespace RGR_TIMP_S4.SortingCore
                 await Task.Delay(FrameDelayMs);
             }
 
+            await Task.Delay(200); //todo
             fly1.Value = ctx.Array[index1];
             fly2.Value = ctx.Array[index2];
             InvalidateCanvas();

@@ -77,7 +77,7 @@
             this.speedTrackBar.Location = new System.Drawing.Point(15, 175);
             this.speedTrackBar.Size = new System.Drawing.Size(180, 45);
             this.speedTrackBar.Minimum = 1;
-            this.speedTrackBar.Maximum = 500;
+            this.speedTrackBar.Maximum = 2000;
             this.speedTrackBar.Value = 50;
             this.speedTrackBar.TickFrequency = 50;
 
@@ -90,9 +90,9 @@
 
             // Метка максимум трекбара
             Label maxTBLabel = new Label();
-            maxTBLabel.Text = "500";
-            maxTBLabel.Location = new System.Drawing.Point(170, 200);
-            maxTBLabel.Size = new System.Drawing.Size(30, 20);
+            maxTBLabel.Text = "2000";
+            maxTBLabel.Location = new System.Drawing.Point(160, 200);
+            maxTBLabel.Size = new System.Drawing.Size(40, 20);
             maxTBLabel.Font = new System.Drawing.Font("Arial", 9, System.Drawing.FontStyle.Regular);
 
             // Метка Выбор алгоритма

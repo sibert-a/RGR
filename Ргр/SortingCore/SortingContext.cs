@@ -134,7 +134,7 @@ namespace RGR_TIMP_S4.SortingCore
             await animator.SwapOnTopAsync(i, j);
             ComparisonSign = "";
             await ClearExternalAsync();
-            await DelayAsync(token);
+            //await DelayAsync(token);
         }
 
         public async Task ClearExternalAsync()
