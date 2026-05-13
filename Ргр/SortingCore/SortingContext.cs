@@ -19,6 +19,7 @@ namespace RGR_TIMP_S4.SortingCore
         public int[] Array { get; private set; }
         public bool[] IsSorted { get; private set; }
         public Scene Scene { get; private set; }
+        public int ArrayYOffset { get; set; } = 0;
 
         public List<VisualElement> MergeTempLeft { get; } = new List<VisualElement>();
         public List<VisualElement> MergeTempRight { get; } = new List<VisualElement>();
@@ -46,6 +47,12 @@ namespace RGR_TIMP_S4.SortingCore
             this.isPausedGetter = isPausedGetter ?? throw new ArgumentNullException(nameof(isPausedGetter));
             Scene = new Scene();
             animator = new AnimationPlayer(canvas, this);
+        }
+
+        public void SetArrayYOffset(int offset)
+        {
+            ArrayYOffset = offset;
+            ResetVisuals();
         }
 
         // Управление массивом
@@ -85,10 +92,6 @@ namespace RGR_TIMP_S4.SortingCore
                 animator.InvalidateCanvas();
             }
         }
-        public void InvalidateCanvas()
-        {
-            animator.InvalidateCanvas();
-        }
 
         public void ResetVisuals()
         {
@@ -96,6 +99,11 @@ namespace RGR_TIMP_S4.SortingCore
             MergeTempLeft.Clear();
             MergeTempRight.Clear();
             animator.InitializeScene(Array);
+            animator.InvalidateCanvas();
+        }
+
+        public void InvalidateCanvas()
+        {
             animator.InvalidateCanvas();
         }
 
@@ -138,7 +146,6 @@ namespace RGR_TIMP_S4.SortingCore
             await animator.SwapOnTopAsync(i, j);
             ComparisonSign = "";
             await ClearExternalAsync();
-            //await DelayAsync(token);
         }
 
         public async Task ClearExternalAsync()
@@ -172,7 +179,7 @@ namespace RGR_TIMP_S4.SortingCore
         {
             var (sx1, sy1, sx2, sy2) = GeometryHelper.GetComparisonTargetPosition(
                 Array.Length, animator.GetCanvasSize(),
-                leftInfo.ArrayIndex.Value, rightInfo.ArrayIndex.Value);
+                leftInfo.ArrayIndex.Value, rightInfo.ArrayIndex.Value, ArrayYOffset);
             x1 = sx1; y1 = sy1; x2 = sx2; y2 = sy2;
         }
 

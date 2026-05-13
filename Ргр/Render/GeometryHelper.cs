@@ -21,10 +21,10 @@ namespace RGR_TIMP_S4.Render
         }
 
         public static (int x1, int y1, int x2, int y2) GetComparisonTargetPosition(
-            int arrayLength, Size canvasSize, int index1, int index2)
+            int arrayLength, Size canvasSize, int index1, int index2, int yOffset = 0)
         {
-            var (elemX1, elemY1) = GetElementScreenPosition(arrayLength, canvasSize, index1);
-            var (elemX2, elemY2) = GetElementScreenPosition(arrayLength, canvasSize, index2);
+            var (elemX1, elemY1) = GetElementScreenPosition(arrayLength, canvasSize, index1, yOffset);
+            var (elemX2, elemY2) = GetElementScreenPosition(arrayLength, canvasSize, index2, yOffset);
             float centerX1 = elemX1 + SquareSize / 2f;
             float centerX2 = elemX2 + SquareSize / 2f;
             float midX = (centerX1 + centerX2) / 2f;

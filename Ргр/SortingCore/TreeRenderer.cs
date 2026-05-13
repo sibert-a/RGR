@@ -9,14 +9,14 @@ namespace RGR_TIMP_S4.Render
     {
         public int Value;
         public TreeNodeVisual Left, Right;
-        public float X, Y; // Позиция узла на canvas
-        public const int NodeRadius = 18;
+        public float X, Y;
+        public const int NodeRadius = 14; // Было 18, уменьшили
     }
 
     public static class TreeRenderer
     {
-        private static readonly Font NodeFont = new Font("Arial", 9, FontStyle.Bold);
-        private static readonly Pen LinePen = new Pen(Color.DarkGreen, 2);
+        private static readonly Font NodeFont = new Font("Arial", 7, FontStyle.Bold); // Было 9, уменьшили
+        private static readonly Pen LinePen = new Pen(Color.DarkGreen, 1.5f); // Было 2, уменьшили
 
         public static TreeNodeVisual BuildAndLayout(int[] array)
         {
@@ -24,7 +24,6 @@ namespace RGR_TIMP_S4.Render
             foreach (int val in array)
                 root = Insert(root, val);
 
-            // Рассчитываем позиции узлов
             if (root != null)
                 CalculatePositions(root, 0, 0, new Dictionary<TreeNodeVisual, float>());
 
@@ -56,12 +55,11 @@ namespace RGR_TIMP_S4.Render
         {
             if (root == null) return;
 
-            float horizontalSpacing = 40;
-            float verticalSpacing = 50;
+            float horizontalSpacing = 30; // Было 40, уменьшили
+            float verticalSpacing = 28;   // Было 50, уменьшили
             float centerX = offset.X;
             float startY = offset.Y;
 
-            // Рисуем линии и узлы рекурсивно
             DrawTree(g, root, centerX, startY, horizontalSpacing, verticalSpacing);
         }
 
@@ -72,7 +70,6 @@ namespace RGR_TIMP_S4.Render
             float nodeX = x + node.X * hSpacing;
             float nodeY = y + node.Y * vSpacing;
 
-            // Рисуем линии к детям
             if (node.Left != null)
             {
                 float childX = x + node.Left.X * hSpacing;
@@ -89,7 +86,6 @@ namespace RGR_TIMP_S4.Render
                 DrawTree(g, node.Right, x, y, hSpacing, vSpacing);
             }
 
-            // Рисуем узел
             var rect = new RectangleF(nodeX - TreeNodeVisual.NodeRadius, nodeY - TreeNodeVisual.NodeRadius,
                                       2 * TreeNodeVisual.NodeRadius, 2 * TreeNodeVisual.NodeRadius);
             using (var brush = new SolidBrush(Color.LightGoldenrodYellow))

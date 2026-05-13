@@ -18,23 +18,23 @@
             this.components = new System.ComponentModel.Container();
 
             this.Text = "Визуализация алгоритмов сортировки";
-            this.ClientSize = new System.Drawing.Size(1300, 700);
+            this.ClientSize = new System.Drawing.Size(1300, 800);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.BackColor = System.Drawing.Color.White;
             this.DoubleBuffered = true;
 
-            // Панель для массива - убрана белая область, уменьшена высота
+            // Canvas растянут на всю высоту
             this.canvas = new Panel();
-            this.canvas.Location = new System.Drawing.Point(10, 170);
-            this.canvas.Size = new System.Drawing.Size(1050, 300);
+            this.canvas.Location = new System.Drawing.Point(10, 10);
+            this.canvas.Size = new System.Drawing.Size(1050, 780);
             this.canvas.BackColor = System.Drawing.Color.White;
             this.canvas.BorderStyle = BorderStyle.None;
             this.canvas.Paint += new PaintEventHandler(this.Canvas_Paint);
 
-            // Правая панель с кнопками (прижата вправо)
+            // Правая панель с кнопками
             this.sidePanel = new Panel();
             this.sidePanel.Location = new System.Drawing.Point(1070, 10);
-            this.sidePanel.Size = new System.Drawing.Size(210, 640);
+            this.sidePanel.Size = new System.Drawing.Size(210, 780);
             this.sidePanel.BackColor = System.Drawing.Color.LightGray;
             this.sidePanel.BorderStyle = BorderStyle.FixedSingle;
 

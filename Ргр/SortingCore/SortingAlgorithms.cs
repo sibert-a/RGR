@@ -7,9 +7,7 @@ namespace RGR_TIMP_S4.SortingCore
 {
     public static class SortingAlgorithms
     {
-        #region Публичное свойство для дерева
-        public static Render.TreeNodeVisual TreeRoot { get; set; } // Изменено: добавлен публичный set
-        #endregion
+        public static Render.TreeNodeVisual TreeRoot { get; set; }
 
         #region BubbleSort
         public static async Task BubbleSort(SortingContext ctx, CancellationToken token)
@@ -225,12 +223,15 @@ namespace RGR_TIMP_S4.SortingCore
         {
             TreeNode root = null;
             TreeRoot = null;
+
+            // Поднимаем массив для TreeSort
+            ctx.SetArrayYOffset(-100);
+
             for (int i = 0; i < ctx.Array.Length; i++)
             {
                 token.ThrowIfCancellationRequested();
                 await ctx.ShowElementAsync(i, token);
                 root = Insert(root, ctx.Array[i]);
-                // Строим визуальное дерево на основе текущих вставленных элементов
                 int[] currentSlice = new int[i + 1];
                 System.Array.Copy(ctx.Array, 0, currentSlice, 0, i + 1);
                 TreeRoot = Render.TreeRenderer.BuildAndLayout(currentSlice);
@@ -248,6 +249,9 @@ namespace RGR_TIMP_S4.SortingCore
                 ctx.MarkSorted(i);
                 await ctx.DelayAsync(token);
             }
+
+            // Возвращаем обратно
+            ctx.SetArrayYOffset(0);
         }
 
         private class TreeNode

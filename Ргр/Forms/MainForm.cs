@@ -89,7 +89,8 @@ namespace RGR_TIMP_S4
             int canvasWidth = ClientSize.Width - sidePanel.Width - 3 * margin;
             canvas.Width = canvasWidth;
             canvas.Left = margin;
-            canvas.Top = 200;
+            canvas.Top = 10;
+            canvas.Height = ClientSize.Height - 2 * margin;
         }
         #endregion
 
@@ -136,13 +137,15 @@ namespace RGR_TIMP_S4
                 SetControlsState(false, false);
                 sortingContext.ResetVisuals();
                 SortingAlgorithms.TreeRoot = null;
+                sortingContext.ArrayYOffset = 0; // Сброс смещения
             }
         }
 
         private void ResetSortingState()
         {
             sortingContext.ResetVisuals();
-            SortingAlgorithms.TreeRoot = null; // сброс дерева
+            SortingAlgorithms.TreeRoot = null;
+            sortingContext.ArrayYOffset = 0; // Сброс смещения
             for (int i = 0; i < sortingContext.Array.Length; i++)
                 sortingContext.IsSorted[i] = false;
             canvas.Invalidate();
@@ -184,7 +187,8 @@ namespace RGR_TIMP_S4
                 isSorting = false;
                 isPaused = false;
             }
-            SortingAlgorithms.TreeRoot = null; // сброс дерева
+            SortingAlgorithms.TreeRoot = null;
+            sortingContext.ArrayYOffset = 0; // Сброс смещения
             RestoreOriginalArray();
             sortingContext.ResetVisuals();
             SetControlsState(false, false);
@@ -223,13 +227,30 @@ namespace RGR_TIMP_S4
         private void Canvas_Paint(object sender, PaintEventArgs e)
         {
             ArrayRenderer.Draw(e.Graphics, sortingContext.Scene);
-            // Если дерево построено, рисуем его справа от массива
             if (SortingAlgorithms.TreeRoot != null)
             {
-                int treeX = canvas.Width - 200; // Отступ справа
-                int treeY = 50;
+                int treeWidth = GetTreeWidth(SortingAlgorithms.TreeRoot);
+                int treeX = (canvas.Width - treeWidth) / 2;
+                int treeY = canvas.Height / 2 - 50;
                 TreeRenderer.Draw(e.Graphics, SortingAlgorithms.TreeRoot, new Point(treeX, treeY), 0);
             }
+        }
+
+        private int GetTreeWidth(TreeNodeVisual root)
+        {
+            if (root == null) return 0;
+            float minX = float.MaxValue, maxX = float.MinValue;
+            FindBounds(root, ref minX, ref maxX);
+            return (int)((maxX - minX) * 30) + 28;
+        }
+
+        private void FindBounds(TreeNodeVisual node, ref float minX, ref float maxX)
+        {
+            if (node == null) return;
+            if (node.X < minX) minX = node.X;
+            if (node.X > maxX) maxX = node.X;
+            FindBounds(node.Left, ref minX, ref maxX);
+            FindBounds(node.Right, ref minX, ref maxX);
         }
         #endregion
     }

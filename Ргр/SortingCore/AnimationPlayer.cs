@@ -21,7 +21,7 @@ namespace RGR_TIMP_S4.SortingCore
 
         private VisualElement currentFlyingSingle = null;
         public (int x, int y) GetPositionOnCanvas(int index) =>
-            GeometryHelper.GetElementScreenPosition(ctx.Array.Length, canvas.ClientSize, index);
+            GeometryHelper.GetElementScreenPosition(ctx.Array.Length, canvas.ClientSize, index, ctx.ArrayYOffset);
 
         public AnimationPlayer(Panel canvas, SortingContext ctx)
         {
@@ -39,7 +39,7 @@ namespace RGR_TIMP_S4.SortingCore
             var sz = canvas.ClientSize;
             for (int i = 0; i < array.Length; i++)
             {
-                var (x, y) = GeometryHelper.GetElementScreenPosition(array.Length, sz, i);
+                var (x, y) = GeometryHelper.GetElementScreenPosition(array.Length, sz, i, ctx.ArrayYOffset);
                 scene.Elements.Add(new VisualElement
                 {
                     Value = array[i],
@@ -153,19 +153,29 @@ namespace RGR_TIMP_S4.SortingCore
 
             var fly1 = new VisualElement
             {
-                Value = orig1.Value, X = orig1.X, Y = orig1.Y, IsVisible = true,
-                BackgroundColor = Color.LightSkyBlue, IsTemporary = true, TargetArrayIndex = index1
+                Value = orig1.Value,
+                X = orig1.X,
+                Y = orig1.Y,
+                IsVisible = true,
+                BackgroundColor = Color.LightSkyBlue,
+                IsTemporary = true,
+                TargetArrayIndex = index1
             };
             var fly2 = new VisualElement
             {
-                Value = orig2.Value, X = orig2.X, Y = orig2.Y, IsVisible = true,
-                BackgroundColor = Color.LightSkyBlue, IsTemporary = true, TargetArrayIndex = index2
+                Value = orig2.Value,
+                X = orig2.X,
+                Y = orig2.Y,
+                IsVisible = true,
+                BackgroundColor = Color.LightSkyBlue,
+                IsTemporary = true,
+                TargetArrayIndex = index2
             };
             scene.Elements.Add(fly1);
             scene.Elements.Add(fly2);
 
             var (tx1, ty1, tx2, ty2) = GeometryHelper.GetComparisonTargetPosition(
-                ctx.Array.Length, canvas.ClientSize, index1, index2);
+                ctx.Array.Length, canvas.ClientSize, index1, index2, ctx.ArrayYOffset);
 
             await AnimateLiftTwo(fly1, fly2, ty1, ty2);
             await AnimateApproachTwo(fly1, fly2, tx1, tx2);
@@ -232,8 +242,13 @@ namespace RGR_TIMP_S4.SortingCore
             orig.IsVisible = false;
             var fly = new VisualElement
             {
-                Value = orig.Value, X = orig.X, Y = orig.Y, IsVisible = true,
-                BackgroundColor = Color.LightSkyBlue, IsTemporary = true, TargetArrayIndex = index
+                Value = orig.Value,
+                X = orig.X,
+                Y = orig.Y,
+                IsVisible = true,
+                BackgroundColor = Color.LightSkyBlue,
+                IsTemporary = true,
+                TargetArrayIndex = index
             };
             scene.Elements.Add(fly);
             float targetY = orig.Y - GeometryHelper.VerticalComparisonOffset;
@@ -276,12 +291,17 @@ namespace RGR_TIMP_S4.SortingCore
             // Левая часть
             for (int i = left; i <= mid; i++)
             {
-                var pos = GeometryHelper.GetElementScreenPosition(ctx.Array.Length, canvas.ClientSize, i);
+                var pos = GeometryHelper.GetElementScreenPosition(ctx.Array.Length, canvas.ClientSize, i, ctx.ArrayYOffset);
                 int tempY = pos.y - GeometryHelper.TempRowVerticalOffset;
                 var temp = new VisualElement
                 {
-                    Value = ctx.Array[i], X = pos.x, Y = pos.y, IsVisible = true,
-                    BackgroundColor = Color.FromArgb(200, 200, 255), IsTemporary = true, ArrayIndex = i
+                    Value = ctx.Array[i],
+                    X = pos.x,
+                    Y = pos.y,
+                    IsVisible = true,
+                    BackgroundColor = Color.FromArgb(200, 200, 255),
+                    IsTemporary = true,
+                    ArrayIndex = i
                 };
                 scene.Elements.Add(temp);
                 ctx.MergeTempLeft.Add(temp);
@@ -293,12 +313,17 @@ namespace RGR_TIMP_S4.SortingCore
             // Правая часть
             for (int i = mid + 1; i <= right; i++)
             {
-                var pos = GeometryHelper.GetElementScreenPosition(ctx.Array.Length, canvas.ClientSize, i);
+                var pos = GeometryHelper.GetElementScreenPosition(ctx.Array.Length, canvas.ClientSize, i, ctx.ArrayYOffset);
                 int tempY = pos.y - GeometryHelper.TempRowVerticalOffset;
                 var temp = new VisualElement
                 {
-                    Value = ctx.Array[i], X = pos.x, Y = pos.y, IsVisible = true,
-                    BackgroundColor = Color.FromArgb(255, 200, 200), IsTemporary = true, ArrayIndex = i
+                    Value = ctx.Array[i],
+                    X = pos.x,
+                    Y = pos.y,
+                    IsVisible = true,
+                    BackgroundColor = Color.FromArgb(255, 200, 200),
+                    IsTemporary = true,
+                    ArrayIndex = i
                 };
                 scene.Elements.Add(temp);
                 ctx.MergeTempRight.Add(temp);
@@ -316,7 +341,7 @@ namespace RGR_TIMP_S4.SortingCore
 
         public async Task AnimateSlotToMainAsync(int slotX, int slotY, int targetIndex, VisualElement info, CancellationToken token)
         {
-            var targetPos = GeometryHelper.GetElementScreenPosition(ctx.Array.Length, canvas.ClientSize, targetIndex);
+            var targetPos = GeometryHelper.GetElementScreenPosition(ctx.Array.Length, canvas.ClientSize, targetIndex, ctx.ArrayYOffset);
             await AnimateMoveTo(info, targetPos.x, targetPos.y);
 
             // Показать и обновить основной элемент
@@ -332,7 +357,7 @@ namespace RGR_TIMP_S4.SortingCore
 
         public async Task MoveRemainingTempElementAsync(VisualElement info, int targetIndex, CancellationToken token)
         {
-            var targetPos = GeometryHelper.GetElementScreenPosition(ctx.Array.Length, canvas.ClientSize, targetIndex);
+            var targetPos = GeometryHelper.GetElementScreenPosition(ctx.Array.Length, canvas.ClientSize, targetIndex, ctx.ArrayYOffset);
             await AnimateMoveTo(info, targetPos.x, targetPos.y);
 
             var main = scene.Elements.First(e => e.ArrayIndex == targetIndex && !e.IsTemporary);
