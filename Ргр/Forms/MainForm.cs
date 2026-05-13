@@ -135,12 +135,14 @@ namespace RGR_TIMP_S4
                 isPaused = false;
                 SetControlsState(false, false);
                 sortingContext.ResetVisuals();
+                SortingAlgorithms.TreeRoot = null;
             }
         }
 
         private void ResetSortingState()
         {
             sortingContext.ResetVisuals();
+            SortingAlgorithms.TreeRoot = null; // сброс дерева
             for (int i = 0; i < sortingContext.Array.Length; i++)
                 sortingContext.IsSorted[i] = false;
             canvas.Invalidate();
@@ -182,6 +184,7 @@ namespace RGR_TIMP_S4
                 isSorting = false;
                 isPaused = false;
             }
+            SortingAlgorithms.TreeRoot = null; // сброс дерева
             RestoreOriginalArray();
             sortingContext.ResetVisuals();
             SetControlsState(false, false);
@@ -220,6 +223,13 @@ namespace RGR_TIMP_S4
         private void Canvas_Paint(object sender, PaintEventArgs e)
         {
             ArrayRenderer.Draw(e.Graphics, sortingContext.Scene);
+            // Если дерево построено, рисуем его справа от массива
+            if (SortingAlgorithms.TreeRoot != null)
+            {
+                int treeX = canvas.Width - 200; // Отступ справа
+                int treeY = 50;
+                TreeRenderer.Draw(e.Graphics, SortingAlgorithms.TreeRoot, new Point(treeX, treeY), 0);
+            }
         }
         #endregion
     }

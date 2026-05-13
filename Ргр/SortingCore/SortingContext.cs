@@ -85,6 +85,10 @@ namespace RGR_TIMP_S4.SortingCore
                 animator.InvalidateCanvas();
             }
         }
+        public void InvalidateCanvas()
+        {
+            animator.InvalidateCanvas();
+        }
 
         public void ResetVisuals()
         {
