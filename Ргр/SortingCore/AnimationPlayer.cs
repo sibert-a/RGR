@@ -319,13 +319,13 @@ namespace RGR_TIMP_S4.SortingCore
             var targetPos = GeometryHelper.GetElementScreenPosition(ctx.Array.Length, canvas.ClientSize, targetIndex);
             await AnimateMoveTo(info, targetPos.x, targetPos.y);
 
-            // Показать и обновить основной элемент
+            // Обновляем основной визуальный элемент
             var main = scene.Elements.First(e => e.ArrayIndex == targetIndex && !e.IsTemporary);
             main.Value = info.Value;
             main.IsVisible = true;
-            main.BackgroundColor = Color.LightGreen;
+            ctx.SetElement(targetIndex, info.Value);
             ctx.MarkSorted(targetIndex);
-            scene.Elements.Remove(info);   // временный элемент больше не нужен
+            scene.Elements.Remove(info);
             InvalidateCanvas();
             await ctx.DelayAsync(token);
         }
@@ -338,6 +338,7 @@ namespace RGR_TIMP_S4.SortingCore
             var main = scene.Elements.First(e => e.ArrayIndex == targetIndex && !e.IsTemporary);
             main.Value = info.Value;
             main.IsVisible = true;
+            ctx.SetElement(targetIndex, info.Value);
             ctx.MarkSorted(targetIndex);
             scene.Elements.Remove(info);
             InvalidateCanvas();

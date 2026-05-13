@@ -115,6 +115,8 @@ namespace RGR_TIMP_S4.SortingCore
                 await ctx.AnimateTempToSlot(leftInfo, x1, y1, true, token);
                 await ctx.AnimateTempToSlot(rightInfo, x2, y2, false, token);
 
+                // Устанавливаем пару сравнения в сцене
+                ctx.Scene.Comparison = (leftInfo, rightInfo, "");
                 ctx.ComparisonSign = L[iIdx] <= R[jIdx] ? "<=" : ">";
                 await ctx.DelayAsync(token);
 
@@ -138,6 +140,8 @@ namespace RGR_TIMP_S4.SortingCore
                     jIdx++;
                 }
 
+                // Очищаем сравнение перед перемещением меньшего вниз
+                ctx.Scene.Comparison = null;
                 await ctx.AnimateSlotToMain(slotSmallerX, slotSmallerY, k, smaller, token);
 
                 if (smallerIsLeft)
@@ -148,17 +152,20 @@ namespace RGR_TIMP_S4.SortingCore
                 if (smallerIsLeft && ctx.MergeTempLeft.Count > 0)
                 {
                     var nextLeft = ctx.MergeTempLeft[0];
+                    // Перемещаем следующий элемент из левого списка в освободившийся слот
                     await ctx.AnimateTempToSlot(nextLeft, x1, y1, true, token);
                 }
                 else if (!smallerIsLeft && ctx.MergeTempRight.Count > 0)
                 {
                     var nextRight = ctx.MergeTempRight[0];
+                    // Перемещаем следующий элемент из правого списка в освободившийся слот
                     await ctx.AnimateTempToSlot(nextRight, x2, y2, false, token);
                 }
 
                 k++;
             }
 
+            // Оставшиеся элементы (сравнения уже не требуются, просто переносим)
             while (iIdx < n1)
             {
                 var info = ctx.MergeTempLeft[0];
