@@ -348,7 +348,7 @@ namespace RGR_TIMP_S4.SortingCore
             var main = scene.Elements.First(e => e.ArrayIndex == targetIndex && !e.IsTemporary);
             main.Value = info.Value;
             main.IsVisible = true;
-            main.BackgroundColor = Color.LightGreen;
+            ctx.SetElement(targetIndex, info.Value);
             ctx.MarkSorted(targetIndex);
             scene.Elements.Remove(info);   // временный элемент больше не нужен
             InvalidateCanvas();
@@ -363,6 +363,7 @@ namespace RGR_TIMP_S4.SortingCore
             var main = scene.Elements.First(e => e.ArrayIndex == targetIndex && !e.IsTemporary);
             main.Value = info.Value;
             main.IsVisible = true;
+            ctx.SetElement(targetIndex, info.Value);
             ctx.MarkSorted(targetIndex);
             scene.Elements.Remove(info);
             InvalidateCanvas();
