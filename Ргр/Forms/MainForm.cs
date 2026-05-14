@@ -35,9 +35,10 @@ namespace RGR_TIMP_S4
         private void ConfigureForm()
         {
             HelpButton = true;
-            MaximizeBox = false;
-            MinimizeBox = false;
-            FormBorderStyle = FormBorderStyle.FixedSingle;
+            MaximizeBox = true;
+            MinimizeBox = true;
+            FormBorderStyle = FormBorderStyle.Sizable;
+            WindowState = FormWindowState.Maximized;
             KeyPreview = true;
             KeyDown += MainForm_KeyDown;
             Resize += MainForm_Resize;
@@ -77,7 +78,11 @@ namespace RGR_TIMP_S4
             }
         }
 
-        private void MainForm_Resize(object sender, EventArgs e) => AdjustLayout();
+        private void MainForm_Resize(object sender, EventArgs e)
+        {
+            AdjustLayout();
+            sortingContext?.SyncAllPositions();
+        }
 
         private void AdjustLayout()
         {

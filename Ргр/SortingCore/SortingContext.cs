@@ -41,6 +41,7 @@ namespace RGR_TIMP_S4.SortingCore
             }
         }
 
+        public void SyncAllPositions() => animator.SyncAllPositions();
         public SortingContext(Panel canvas, TrackBar speedTrackBar, Func<bool> isPausedGetter)
         {
             this.speedTrackBar = speedTrackBar ?? throw new ArgumentNullException(nameof(speedTrackBar));
@@ -118,8 +119,6 @@ namespace RGR_TIMP_S4.SortingCore
         }
 
         // Высокоуровневые действия для алгоритмов
-        public (int x, int y) GetElementPositionOnCanvas(int index) =>
-            animator.GetPositionOnCanvas(index);
 
         public async Task CompareAsync(int index1, int index2, CancellationToken token)
         {
@@ -180,7 +179,7 @@ namespace RGR_TIMP_S4.SortingCore
         }
 
         public void GetMergeSlots(VisualElement leftInfo, VisualElement rightInfo,
-            out int x1, out int y1, out int x2, out int y2)
+    out int x1, out int y1, out int x2, out int y2)
         {
             var (sx1, sy1, sx2, sy2) = GeometryHelper.GetComparisonTargetPosition(
                 Array.Length, animator.GetCanvasSize(),
@@ -190,11 +189,16 @@ namespace RGR_TIMP_S4.SortingCore
 
         public async Task AnimateTempToSlot(VisualElement info, int slotX, int slotY, bool isLeftSlot, CancellationToken token)
         {
-            await animator.AnimateTempToSlotAsync(info, slotX, slotY);
+            await animator.AnimateTempToSlotAsync(info, info.ArrayIndex.Value, slotY);
+            // После анимации устанавливаем точные координаты слота
+            info.X = slotX;
+            info.Y = slotY;
         }
 
         public async Task AnimateSlotToMain(int slotX, int slotY, int targetIndex, VisualElement info, CancellationToken token)
         {
+            info.X = slotX;
+            info.Y = slotY;
             await animator.AnimateSlotToMainAsync(slotX, slotY, targetIndex, info, token);
         }
 

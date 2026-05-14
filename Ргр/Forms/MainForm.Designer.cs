@@ -22,6 +22,8 @@
             this.StartPosition = FormStartPosition.CenterScreen;
             this.BackColor = System.Drawing.Color.White;
             this.DoubleBuffered = true;
+            this.StartPosition = FormStartPosition.CenterScreen;
+            this.WindowState = FormWindowState.Maximized;
 
             // Canvas растянут на всю высоту
             this.canvas = new Panel();
