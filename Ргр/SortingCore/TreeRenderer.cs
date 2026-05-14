@@ -10,13 +10,13 @@ namespace RGR_TIMP_S4.Render
         public int Value;
         public TreeNodeVisual Left, Right;
         public float X, Y;
-        public const int NodeRadius = 14; // Было 18, уменьшили
+        public const int NodeRadius = 18;
     }
 
     public static class TreeRenderer
     {
-        private static readonly Font NodeFont = new Font("Arial", 7, FontStyle.Bold); // Было 9, уменьшили
-        private static readonly Pen LinePen = new Pen(Color.DarkGreen, 1.5f); // Было 2, уменьшили
+        private static readonly Font NodeFont = new Font("Arial", 8, FontStyle.Bold);
+        private static readonly Pen LinePen = new Pen(Color.DarkGreen, 2);
 
         public static TreeNodeVisual BuildAndLayout(int[] array)
         {
@@ -55,8 +55,8 @@ namespace RGR_TIMP_S4.Render
         {
             if (root == null) return;
 
-            float horizontalSpacing = 30; // Было 40, уменьшили
-            float verticalSpacing = 28;   // Было 50, уменьшили
+            float horizontalSpacing = 30;
+            float verticalSpacing = 50;
             float centerX = offset.X;
             float startY = offset.Y;
 
@@ -70,6 +70,7 @@ namespace RGR_TIMP_S4.Render
             float nodeX = x + node.X * hSpacing;
             float nodeY = y + node.Y * vSpacing;
 
+            // Рисуем линии к детям
             if (node.Left != null)
             {
                 float childX = x + node.Left.X * hSpacing;
@@ -86,6 +87,7 @@ namespace RGR_TIMP_S4.Render
                 DrawTree(g, node.Right, x, y, hSpacing, vSpacing);
             }
 
+            // Рисуем узел
             var rect = new RectangleF(nodeX - TreeNodeVisual.NodeRadius, nodeY - TreeNodeVisual.NodeRadius,
                                       2 * TreeNodeVisual.NodeRadius, 2 * TreeNodeVisual.NodeRadius);
             using (var brush = new SolidBrush(Color.LightGoldenrodYellow))
