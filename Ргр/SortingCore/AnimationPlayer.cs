@@ -139,14 +139,25 @@ namespace RGR_TIMP_S4.SortingCore
             e2.Y = GetPos(targetIndex2).y;
             InvalidateCanvas();
         }
-
+        private async Task AnimateLiftVertical(VisualElement el, float toY)
+        {
+            float sY = el.Y;
+            for (int st = 0; st <= VerticalSteps; st++)
+            {
+                float t = (float)st / VerticalSteps;
+                float ease = 1 - (float)Math.Pow(1 - t, 2);
+                el.Y = sY + (toY - sY) * ease;
+                InvalidateCanvas();
+                await Task.Delay(FrameDelayMs);
+            }
+        }
         private async Task AnimateLiftSingle(VisualElement el, int targetIndex)
         {
             float sY = el.Y;
             var (_, groundY) = GetPos(targetIndex);
             float toY = groundY - GeometryHelper.VerticalComparisonOffset;
 
-            for (int st = 0; st <= VerticalSteps; st++)
+            for (int st = 0; st <= 2 * VerticalSteps; st++)
             {
                 float t = (float)st / VerticalSteps;
                 float ease = 1 - (float)Math.Pow(1 - t, 2);
@@ -429,7 +440,6 @@ namespace RGR_TIMP_S4.SortingCore
         public async Task BeginMergeVisualAsync(int left, int mid, int right, CancellationToken token)
         {
             ctx.IsMergeActive = true;
-            // Скрыть основные элементы в диапазоне
             for (int i = left; i <= right; i++)
             {
                 var elem = scene.Elements.First(e => e.ArrayIndex == i && !e.IsTemporary);
@@ -443,7 +453,7 @@ namespace RGR_TIMP_S4.SortingCore
             for (int i = left; i <= mid; i++)
             {
                 var pos = GetPos(i);
-                int tempY = pos.y - GeometryHelper.TempRowVerticalOffset;
+                float tempY = pos.y - GeometryHelper.TempRowVerticalOffset;
                 var temp = new VisualElement
                 {
                     Value = ctx.Array[i],
@@ -452,12 +462,12 @@ namespace RGR_TIMP_S4.SortingCore
                     IsVisible = true,
                     BackgroundColor = Color.FromArgb(200, 200, 255),
                     IsTemporary = true,
-                    ArrayIndex = i
+                    ArrayIndex = i,
+                    TargetArrayIndex = i
                 };
                 scene.Elements.Add(temp);
                 ctx.MergeTempLeft.Add(temp);
-                await AnimateLiftSingle(temp, i);
-                temp.Y = pos.y - GeometryHelper.TempRowVerticalOffset;
+                await AnimateLiftVertical(temp, tempY);
                 InvalidateCanvas();
                 await Task.Delay(20, token);
             }
@@ -465,7 +475,7 @@ namespace RGR_TIMP_S4.SortingCore
             for (int i = mid + 1; i <= right; i++)
             {
                 var pos = GetPos(i);
-                int tempY = pos.y - GeometryHelper.TempRowVerticalOffset;
+                float tempY = pos.y - GeometryHelper.TempRowVerticalOffset;
                 var temp = new VisualElement
                 {
                     Value = ctx.Array[i],
@@ -474,31 +484,55 @@ namespace RGR_TIMP_S4.SortingCore
                     IsVisible = true,
                     BackgroundColor = Color.FromArgb(255, 200, 200),
                     IsTemporary = true,
-                    ArrayIndex = i
+                    ArrayIndex = i,
+                    TargetArrayIndex = i
                 };
                 scene.Elements.Add(temp);
                 ctx.MergeTempRight.Add(temp);
-                await AnimateLiftSingle(temp, i);
-                temp.Y = pos.y - GeometryHelper.TempRowVerticalOffset;
+                await AnimateLiftVertical(temp, tempY);
                 InvalidateCanvas();
                 await Task.Delay(20, token);
             }
         }
 
-        public async Task AnimateTempToSlotAsync(VisualElement info, int targetIndex, float? customY = null)
+        public async Task AnimateTempToSlotAsync(VisualElement info, float targetX, float targetY)
         {
-            await AnimateMoveTo(info, targetIndex, customY);
+            float sX = info.X, sY = info.Y;
+            int steps = HorizontalStepsBase;
+            for (int st = 0; st <= steps; st++)
+            {
+                float t = (float)st / steps;
+                float ease = 1 - (1 - t) * (1 - t);
+                info.X = sX + (targetX - sX) * ease;
+                info.Y = sY + (targetY - sY) * ease;
+                InvalidateCanvas();
+                await Task.Delay(FrameDelayMs);
+            }
+            info.X = targetX;
+            info.Y = targetY;
+            InvalidateCanvas();
         }
 
         public async Task AnimateSlotToMainAsync(int slotX, int slotY, int targetIndex, VisualElement info, CancellationToken token)
         {
-            // Сохраняем текущий X (слот) и анимируем к целевой позиции
-            float savedX = info.X;
-            await AnimateMoveTo(info, targetIndex);
-            info.X = savedX; // восстановим, если нужно, но AnimateMoveTo уже обновил
+            info.X = slotX;
+            info.Y = slotY;
+            InvalidateCanvas();
+
             var (fx, fy) = GetPos(targetIndex);
+            float sY = info.Y;
+            for (int st = 0; st <= VerticalSteps; st++)
+            {
+                float t = (float)st / VerticalSteps;
+                float ease = t * t;
+                info.X = slotX + (fx - slotX) * ease;
+                info.Y = sY + (fy - sY) * ease;
+                InvalidateCanvas();
+                await Task.Delay(FrameDelayMs);
+            }
             info.X = fx;
             info.Y = fy;
+            InvalidateCanvas();
 
             var main = scene.Elements.First(e => e.ArrayIndex == targetIndex && !e.IsTemporary);
             main.Value = info.Value;
@@ -506,7 +540,6 @@ namespace RGR_TIMP_S4.SortingCore
             ctx.SetElement(targetIndex, info.Value);
             ctx.MarkSorted(targetIndex);
             scene.Elements.Remove(info);
-            InvalidateCanvas();
             await ctx.DelayAsync(token);
         }
 

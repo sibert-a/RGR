@@ -187,18 +187,13 @@ namespace RGR_TIMP_S4.SortingCore
             x1 = sx1; y1 = sy1; x2 = sx2; y2 = sy2;
         }
 
-        public async Task AnimateTempToSlot(VisualElement info, int slotX, int slotY, bool isLeftSlot, CancellationToken token)
+        public async Task AnimateTempToSlot(VisualElement info, int slotX, int slotY, int targetIndexForCalc, CancellationToken token)
         {
-            await animator.AnimateTempToSlotAsync(info, info.ArrayIndex.Value, slotY);
-            // После анимации устанавливаем точные координаты слота
-            info.X = slotX;
-            info.Y = slotY;
+            await animator.AnimateTempToSlotAsync(info, slotX, slotY);
         }
 
         public async Task AnimateSlotToMain(int slotX, int slotY, int targetIndex, VisualElement info, CancellationToken token)
         {
-            info.X = slotX;
-            info.Y = slotY;
             await animator.AnimateSlotToMainAsync(slotX, slotY, targetIndex, info, token);
         }
 

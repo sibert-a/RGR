@@ -114,10 +114,9 @@ namespace RGR_TIMP_S4.SortingCore
 
                 ctx.GetMergeSlots(leftInfo, rightInfo, out int x1, out int y1, out int x2, out int y2);
 
-                await ctx.AnimateTempToSlot(leftInfo, x1, y1, true, token);
-                await ctx.AnimateTempToSlot(rightInfo, x2, y2, false, token);
+                await ctx.AnimateTempToSlot(leftInfo, x1, y1, leftInfo.ArrayIndex.Value, token);
+                await ctx.AnimateTempToSlot(rightInfo, x2, y2, rightInfo.ArrayIndex.Value, token);
 
-                // Устанавливаем пару сравнения в сцене
                 ctx.Scene.Comparison = (leftInfo, rightInfo, "");
                 ctx.ComparisonSign = L[iIdx] <= R[jIdx] ? "<=" : ">";
                 await ctx.DelayAsync(token);
@@ -142,7 +141,6 @@ namespace RGR_TIMP_S4.SortingCore
                     jIdx++;
                 }
 
-                // Очищаем сравнение перед перемещением меньшего вниз
                 ctx.Scene.Comparison = null;
                 await ctx.AnimateSlotToMain(slotSmallerX, slotSmallerY, k, smaller, token);
 
@@ -151,23 +149,24 @@ namespace RGR_TIMP_S4.SortingCore
                 else
                     ctx.MergeTempRight.RemoveAt(0);
 
-                if (smallerIsLeft && ctx.MergeTempLeft.Count > 0)
+                if (smallerIsLeft && ctx.MergeTempLeft.Count > 0 && ctx.MergeTempRight.Count > 0)
                 {
                     var nextLeft = ctx.MergeTempLeft[0];
-                    // Перемещаем следующий элемент из левого списка в освободившийся слот
-                    await ctx.AnimateTempToSlot(nextLeft, x1, y1, true, token);
-                }
-                else if (!smallerIsLeft && ctx.MergeTempRight.Count > 0)
-                {
                     var nextRight = ctx.MergeTempRight[0];
-                    // Перемещаем следующий элемент из правого списка в освободившийся слот
-                    await ctx.AnimateTempToSlot(nextRight, x2, y2, false, token);
+                    ctx.GetMergeSlots(nextLeft, nextRight, out int nx1, out int ny1, out int nx2, out int ny2);
+                    await ctx.AnimateTempToSlot(nextLeft, nx1, ny1, nextLeft.ArrayIndex.Value, token);
+                }
+                else if (!smallerIsLeft && ctx.MergeTempLeft.Count > 0 && ctx.MergeTempRight.Count > 0)
+                {
+                    var nextLeft = ctx.MergeTempLeft[0];
+                    var nextRight = ctx.MergeTempRight[0];
+                    ctx.GetMergeSlots(nextLeft, nextRight, out int nx1, out int ny1, out int nx2, out int ny2);
+                    await ctx.AnimateTempToSlot(nextRight, nx2, ny2, nextRight.ArrayIndex.Value, token);
                 }
 
                 k++;
             }
 
-            // Оставшиеся элементы (сравнения уже не требуются, просто переносим)
             while (iIdx < n1)
             {
                 var info = ctx.MergeTempLeft[0];
