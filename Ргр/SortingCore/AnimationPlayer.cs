@@ -198,6 +198,35 @@ namespace RGR_TIMP_S4.SortingCore
             InvalidateCanvas();
         }
 
+        private async Task AnimateLiftTwo(VisualElement e1, VisualElement e2, float toY1, float toY2)
+        {
+            float sY1 = e1.Y, sY2 = e2.Y;
+            for (int st = 0; st <= VerticalSteps; st++)
+            {
+                float t = (float)st / VerticalSteps;
+                float ease = 1 - (float)Math.Pow(1 - t, 2);
+                e1.Y = sY1 + (toY1 - sY1) * ease;
+                e2.Y = sY2 + (toY2 - sY2) * ease;
+                InvalidateCanvas();
+                await Task.Delay(FrameDelayMs);
+            }
+        }
+
+        private async Task AnimateApproachTwoToCoords(VisualElement e1, VisualElement e2, float toX1, float toX2)
+        {
+            float sX1 = e1.X, sX2 = e2.X;
+            int steps = HorizontalStepsBase;
+            for (int st = 0; st <= steps; st++)
+            {
+                float t = (float)st / steps;
+                float ease = 1 - (1 - t) * (1 - t);
+                e1.X = sX1 + (toX1 - sX1) * ease;
+                e2.X = sX2 + (toX2 - sX2) * ease;
+                InvalidateCanvas();
+                await Task.Delay(FrameDelayMs);
+            }
+        }
+
         // ----------------------------------------------------------------
         // Публичные методы для обычных алгоритмов
         // ----------------------------------------------------------------
@@ -234,15 +263,15 @@ namespace RGR_TIMP_S4.SortingCore
             scene.Elements.Add(fly1);
             scene.Elements.Add(fly2);
 
-            // Поднимаем
-            await AnimateLiftTwo(fly1, fly2, index1, index2);
-
-            // Сближаем к слотам сравнения
+            // Вычисляем слоты сравнения
             var (tx1, ty1, tx2, ty2) = GeometryHelper.GetComparisonTargetPosition(
                 ctx.Array.Length, canvas.ClientSize, index1, index2, ctx.ArrayYOffset);
 
-            float curY1 = fly1.Y, curY2 = fly2.Y;
-            await AnimateApproachTwo(fly1, fly2, index1, index2, curY1, curY2);
+            // Поднимаем на высоту слотов
+            await AnimateLiftTwo(fly1, fly2, ty1, ty2);
+
+            // Сближаем к X-координатам слотов (на текущей высоте)
+            await AnimateApproachTwoToCoords(fly1, fly2, tx1, tx2);
 
             // Фиксируем в слотах
             fly1.X = tx1; fly1.Y = ty1;
