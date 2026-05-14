@@ -12,7 +12,7 @@ namespace RGR_TIMP_S4.SortingCore
     {
         private const int VerticalSteps = 16;
         private const int HorizontalStepsBase = 20;
-        private const int SwapSteps = 40;
+        private const int SwapSteps = 20;
         private const int FrameDelayMs = 5;
 
         private readonly Panel canvas;
@@ -231,6 +231,71 @@ namespace RGR_TIMP_S4.SortingCore
             await Task.Delay(200); //todo
             fly1.Value = ctx.Array[index1];
             fly2.Value = ctx.Array[index2];
+            InvalidateCanvas();
+        }
+
+        public async Task FallToNewPositions(int newIndex1, int newIndex2)
+        {
+            if (scene.Comparison == null) return;
+            var (fly1, fly2, _) = scene.Comparison.Value;
+
+            // После SwapOnTopAsync:
+            // fly1 (был на индексе i) сейчас висит над позицией j и содержит значение 21
+            // fly2 (был на индексе j) сейчас висит над позицией i и содержит значение 61
+            float currentX1 = fly1.X, currentY1 = fly1.Y;
+            float currentX2 = fly2.X, currentY2 = fly2.Y;
+            int val1 = fly1.Value;
+            int val2 = fly2.Value;
+
+            // Удаляем старые летающие элементы
+            scene.Elements.Remove(fly1);
+            scene.Elements.Remove(fly2);
+            scene.Comparison = null;
+
+            // Находим основные элементы (они пока скрыты)
+            var orig1 = scene.Elements.First(e => e.ArrayIndex == newIndex1 && !e.IsTemporary);
+            var orig2 = scene.Elements.First(e => e.ArrayIndex == newIndex2 && !e.IsTemporary);
+
+            // Создаём новые временные элементы на текущих позициях после обмена
+            var newFly1 = new VisualElement
+            {
+                Value = val2,
+                X = currentX1,
+                Y = currentY1,
+                IsVisible = true,
+                BackgroundColor = Color.LightSkyBlue,
+                IsTemporary = true,
+                TargetArrayIndex = newIndex1
+            };
+            var newFly2 = new VisualElement
+            {
+                Value = val1,
+                X = currentX2,
+                Y = currentY2,
+                IsVisible = true,
+                BackgroundColor = Color.LightSkyBlue,
+                IsTemporary = true,
+                TargetArrayIndex = newIndex2
+            };
+
+            scene.Elements.Add(newFly1);
+            scene.Elements.Add(newFly2);
+            InvalidateCanvas();
+
+            // Анимация: горизонтальное сближение
+            await AnimateApproachTwo(newFly1, newFly2, orig2.X, orig1.X);
+            // Вертикальное падение
+            await AnimateLandTwo(newFly1, newFly2, orig2.Y, orig1.Y);
+
+            // ТОЛЬКО ПОСЛЕ АНИМАЦИИ обновляем основные элементы
+            orig1.Value = val1;
+            orig2.Value = val2;
+            orig1.IsVisible = true;
+            orig2.IsVisible = true;
+
+            // Удаляем временные элементы
+            scene.Elements.Remove(newFly1);
+            scene.Elements.Remove(newFly2);
             InvalidateCanvas();
         }
 

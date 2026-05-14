@@ -139,13 +139,18 @@ namespace RGR_TIMP_S4.SortingCore
                 await DelayAsync(token);
             }
 
+            // Меняем значения в массиве
             int tmp = Array[i];
             Array[i] = Array[j];
             Array[j] = tmp;
 
+            // Анимация обмена крест-накрест
             await animator.SwapOnTopAsync(i, j);
             ComparisonSign = "";
-            await ClearExternalAsync();
+
+            // Опускаем элементы на НОВЫЕ позиции: i получает значение из j, j получает значение из i
+            await animator.FallToNewPositions(i, j);
+            await DelayAsync(token);
         }
 
         public async Task ClearExternalAsync()
