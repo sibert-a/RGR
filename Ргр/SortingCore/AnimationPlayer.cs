@@ -70,9 +70,7 @@ namespace RGR_TIMP_S4.SortingCore
             InvalidateCanvas();
         }
 
-        // ----------------------------------------------------------------
         // Вспомогательные анимации движения (принимают ИНДЕКСЫ)
-        // ----------------------------------------------------------------
         private async Task AnimateLiftTwo(VisualElement e1, VisualElement e2, int targetIndex1, int targetIndex2)
         {
             float sY1 = e1.Y, sY2 = e2.Y;
@@ -238,9 +236,7 @@ namespace RGR_TIMP_S4.SortingCore
             }
         }
 
-        // ----------------------------------------------------------------
         // Публичные методы для обычных алгоритмов
-        // ----------------------------------------------------------------
         public async Task FlyToComparisonAsync(int index1, int index2)
         {
             var orig1 = scene.Elements.First(e => e.ArrayIndex == index1 && !e.IsTemporary);
@@ -434,9 +430,7 @@ namespace RGR_TIMP_S4.SortingCore
             InvalidateCanvas();
         }
 
-        // ----------------------------------------------------------------
         // Операции для слияния
-        // ----------------------------------------------------------------
         public async Task BeginMergeVisualAsync(int left, int mid, int right, CancellationToken token)
         {
             ctx.IsMergeActive = true;
